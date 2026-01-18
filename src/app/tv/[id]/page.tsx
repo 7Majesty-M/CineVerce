@@ -3,13 +3,13 @@ import { getTVShowById } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; // Импортируем БД
 import { watchlist } from '@/db/schema'; // Импортируем таблицу watchlist
-import { auth } from '@clerk/nextjs/server'; // Для проверки юзера
 import { eq, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import RatingButton from '../../../components/RatingButton';
 import WatchlistButton from '@/components/WatchlistButton'; // <--- Импортируем компонент
 import AddToListDropdown from '@/components/AddToListDropdown';
+import { auth } from '@/auth'; // Твой файл настройки
 
 // !!! ВАЖНО: Отключаем кэширование страницы, чтобы рейтинг обновлялся сразу !!!
 export const dynamic = 'force-dynamic';
@@ -37,17 +37,21 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
   const releaseYear = show.first_air_date?.split('-')[0];
 
   // 3. Проверяем Watchlist (Буду смотреть) для сериала
-  const { userId } = await auth();
-  let isInWatchlist = false;
-  
-  if (userId) {
-      const check = await db.select().from(watchlist).where(and(
-          eq(watchlist.userId, userId),
-          eq(watchlist.mediaId, showId),
-          eq(watchlist.mediaType, 'tv')
-      ));
-      isInWatchlist = check.length > 0;
-  }
+// 3. Проверяем Watchlist (Буду смотреть)
+   const session = await auth(); // <-- Получаем сессию
+   const userId = session?.user?.id; // <-- Достаем ID
+
+   let isInWatchlist = false;
+
+   if (userId) {
+    const check = await db.select().from(watchlist).where(and(
+        eq(watchlist.userId, userId),
+        eq(watchlist.mediaId, showId),
+        eq(watchlist.mediaType, 'tv')
+    ));
+    isInWatchlist = check.length > 0;
+   }
+
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-pink-500/30 selection:text-pink-100 font-sans pb-20">

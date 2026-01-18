@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { lists, listItems, listMembers, users } from '@/db/schema';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/auth'; // NextAuth
 import { eq, and, desc } from 'drizzle-orm';
 import { notFound, redirect } from 'next/navigation';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
@@ -13,17 +13,20 @@ export const dynamic = 'force-dynamic';
 export default async function ListDetailsPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const listId = Number(params.id);
-  const { userId } = await auth();
+  
+  // 1. АВТОРИЗАЦИЯ
+  const session = await auth();
+  const userId = session?.user?.id;
 
   if (!userId) redirect('/');
 
-  // 1. Получаем инфо о списке (замена db.query на db.select)
+  // 2. ПОЛУЧЕНИЕ СПИСКА (Через db.select)
   const listData = await db.select().from(lists).where(eq(lists.id, listId)).limit(1);
   const list = listData[0];
 
   if (!list) notFound();
 
-  // 2. Проверяем доступ (Я участник?)
+  // 3. ПРОВЕРКА ДОСТУПА
   const membershipData = await db.select()
     .from(listMembers)
     .where(and(eq(listMembers.listId, listId), eq(listMembers.userId, userId)))
@@ -31,13 +34,11 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
   
   const membership = membershipData[0];
 
-  // Если я не участник и список приватный -> Доступ запрещен
   if (!membership && !list.isPublic) {
     return (
         <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
             <div className="text-center">
                 <h1 className="text-4xl font-bold mb-4">🔒 Доступ запрещен</h1>
-                <p className="text-slate-500">Этот список является приватным.</p>
                 <Link href="/lists" className="mt-6 inline-block text-pink-500 hover:underline">Вернуться к моим спискам</Link>
             </div>
         </div>
@@ -46,31 +47,33 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
 
   const isAdmin = membership?.role === 'admin';
 
-  // 3. Получаем участников (с аватарками)
+  // 4. ПОЛУЧЕНИЕ УЧАСТНИКОВ
   const members = await db.select({
       id: users.id,
       name: users.name,
-      imageUrl: users.imageUrl,
+      imageUrl: users.image, // В NextAuth поле называется 'image'
       role: listMembers.role
   })
   .from(listMembers)
   .innerJoin(users, eq(listMembers.userId, users.id))
   .where(eq(listMembers.listId, listId));
 
-  // 4. Получаем фильмы в списке
+  // 5. ПОЛУЧЕНИЕ ФИЛЬМОВ
   const items = await db.select().from(listItems).where(eq(listItems.listId, listId)).orderBy(desc(listItems.createdAt));
 
-  // 5. Подгружаем постеры с TMDB
   const itemsWithData = await Promise.all(items.map(async (item) => {
       let mediaData: any = null;
       try {
           if (item.mediaType === 'movie') mediaData = await getMovieById(String(item.mediaId));
           else mediaData = await getTVShowById(String(item.mediaId));
       } catch (e) {}
+      
+      const safeData = mediaData as any;
+
       return { 
           ...item, 
-          poster: mediaData?.poster_path, 
-          title: mediaData?.title || mediaData?.name || 'Загрузка...' 
+          poster: safeData?.poster_path, 
+          title: safeData?.title || safeData?.name || 'Загрузка...' 
       };
   }));
 
@@ -80,7 +83,6 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
         
         {/* HEADER */}
         <div className="mb-12 bg-[#111] p-8 rounded-[2.5rem] border border-white/5 relative">
-            {/* УБРАЛИ overflow-hidden отсюда */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-pink-500/10 blur-[100px] rounded-full pointer-events-none -z-10"></div>
             
             <Link href="/lists" className="text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest mb-6 inline-block transition-colors">← Мои коллекции</Link>
@@ -94,14 +96,12 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
                     <p className="text-slate-400 text-lg max-w-xl">{list.description || "Коллекция фильмов и сериалов"}</p>
                 </div>
                 
-                {/* УЧАСТНИКИ - ПОВЫШЕН Z-INDEX */}
                 <div className="flex items-center gap-4 bg-black/20 p-2 pr-4 rounded-full border border-white/5 backdrop-blur-md relative z-50">
                     <div className="flex -space-x-3 pl-2">
                         {members.map(m => (
                             <img key={m.id} src={m.imageUrl || ''} className="w-10 h-10 rounded-full border-2 border-[#111]" title={m.name || ''} />
                         ))}
                     </div>
-                    {/* КНОПКА ПРИГЛАШЕНИЯ - ПОВЫШЕН Z-INDEX */}
                     {isAdmin && (
                         <div className="relative z-50">
                             <AddMemberButton listId={listId} />
@@ -127,7 +127,6 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
                         </div>
                     </Link>
                     
-                    {/* КНОПКА УДАЛЕНИЯ (Только для админа или того, кто добавил) */}
                     {(isAdmin || item.addedBy === userId) && (
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                             <RemoveItemButton itemId={item.id} listId={listId} />

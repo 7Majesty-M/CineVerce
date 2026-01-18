@@ -1,72 +1,29 @@
 // src/app/actions.ts
 'use server';
-import { count } from 'drizzle-orm'; 
+
 import { db } from '@/db';
-import { reviews, follows, users, lists, listMembers, listItems  } from '@/db/schema';
-import { auth, clerkClient } from '@clerk/nextjs/server'; // Добавили clerkClient
+// Импортируем все таблицы
+import { reviews, follows, users, lists, listMembers, listItems, watchlist, matchSessions, matchVotes } from '@/db/schema';
+import { auth } from '@/auth'; // NextAuth
 import { revalidatePath } from 'next/cache';
-import { eq, and, desc } from 'drizzle-orm'; // <-- Добавил desc
-import { searchMulti } from '@/lib/tmdb';
-import { watchlist } from '@/db/schema';
-import { matchSessions, matchVotes } from '@/db/schema';
-import { nanoid } from 'nanoid'; // Или просто Math.random
-import { getMovieById } from '@/lib/tmdb';
-import { sql } from 'drizzle-orm';
+import { eq, and, desc, count, sql } from 'drizzle-orm';
+import { getMovieById, searchMulti } from '@/lib/tmdb';
 
-// --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: СИНХРОНИЗАЦИЯ ---
-// Проверяет, есть ли юзер в базе Neon. Если нет — создает копию из Clerk.
-async function syncUser(userId: string) {
-  try {
-    const client = await clerkClient();
-    const clerkUser = await client.users.getUser(userId);
-    
-    const email = clerkUser.emailAddresses[0]?.emailAddress || "no-email";
-    const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || "User";
+// --- 1. РЕЙТИНГИ (Оценки) ---
 
-    await db.insert(users).values({
-      id: userId,
-      email: email,
-      name: name,
-      imageUrl: clerkUser.imageUrl,
-    })
-    .onConflictDoUpdate({ 
-      target: users.id,
-      set: { name, email, imageUrl: clerkUser.imageUrl }
-    });
-  } catch (e) {
-    console.error(`Error syncing user ${userId}:`, e);
-  }
-}
-
-// --- 1. СОХРАНЕНИЕ РЕЙТИНГА ---
 export async function saveMediaRating(data: {
   mediaId: number;
   mediaType: 'movie' | 'tv';
   seasonNumber: number;
-  ratings: {
-    plot: number;
-    acting: number;
-    visuals: number;
-    sound: number;
-    characters: number;
-    atmosphere: number;
-    ending: number;
-    originality: number;
-  };
+  ratings: any; // JSON
   average: number;
 }) {
-  const { userId } = await auth();
+  const session = await auth();
+  const userId = session?.user?.id;
 
-  if (!userId) {
-    return { success: false, error: 'Вы не авторизованы' };
-  }
+  if (!userId) return { success: false, error: 'Unauthorized' };
 
   try {
-    // ВАЖНО: Сначала синхронизируем пользователя, чтобы не было ошибки FK
-    await syncUser(userId);
-
-    console.log(`💾 Сохраняем в БД: User ${userId}, Show ${data.mediaId}, Season ${data.seasonNumber}, Avg ${data.average}`);
-
     const existingRecords = await db.select()
       .from(reviews)
       .where(and(
@@ -80,7 +37,6 @@ export async function saveMediaRating(data: {
     const existing = existingRecords[0];
 
     if (existing) {
-      // ОБНОВЛЕНИЕ
       await db.update(reviews)
         .set({
           rating: data.average,
@@ -89,7 +45,6 @@ export async function saveMediaRating(data: {
         })
         .where(eq(reviews.id, existing.id));
     } else {
-      // СОЗДАНИЕ
       await db.insert(reviews).values({
         userId: userId,
         mediaId: data.mediaId,
@@ -100,38 +55,31 @@ export async function saveMediaRating(data: {
       });
     }
 
-    // Сброс кэша
     const path = data.mediaType === 'movie' ? `/movie/${data.mediaId}` : `/tv/${data.mediaId}`;
     revalidatePath(path);
-    
     return { success: true };
-
   } catch (error) {
-    console.error('🔥 Ошибка базы данных:', error);
-    return { success: false, error: 'Ошибка сохранения в базу данных' };
+    console.error(error);
+    return { success: false, error: 'DB Error' };
   }
 }
 
-// --- 2. ПОИСК (Proxy для Client Components) ---
+// --- 2. ПОИСК ---
+
 export async function searchMultiAction(query: string) {
   return await searchMulti(query);
 }
 
-// --- 3. ПОДПИСКИ ---
+// --- 3. СОЦИАЛЬНОЕ (Подписки) ---
+
 export async function toggleFollow(targetUserId: string) {
-  const { userId: currentUserId } = await auth();
+  const session = await auth();
+  const currentUserId = session?.user?.id;
 
   if (!currentUserId) return { success: false, error: "Unauthorized" };
-  if (currentUserId === targetUserId) return { success: false, error: "Cannot follow yourself" };
+  if (currentUserId === targetUserId) return { success: false, error: "Self follow" };
 
   try {
-    // ВАЖНО: Синхронизируем обоих пользователей перед созданием связи
-    await Promise.all([
-      syncUser(currentUserId),
-      syncUser(targetUserId)
-    ]);
-
-    // Проверяем, подписаны ли мы уже
     const existingFollow = await db.select()
       .from(follows)
       .where(and(
@@ -141,7 +89,6 @@ export async function toggleFollow(targetUserId: string) {
       .limit(1);
 
     if (existingFollow.length > 0) {
-      // УЖЕ ПОДПИСАН -> ОТПИСЫВАЕМСЯ
       await db.delete(follows)
         .where(and(
           eq(follows.followerId, currentUserId),
@@ -151,7 +98,6 @@ export async function toggleFollow(targetUserId: string) {
       revalidatePath(`/profile/${targetUserId}`);
       return { success: true, isFollowing: false };
     } else {
-      // НЕ ПОДПИСАН -> ПОДПИСЫВАЕМСЯ
       await db.insert(follows).values({
         followerId: currentUserId,
         followingId: targetUserId,
@@ -161,10 +107,10 @@ export async function toggleFollow(targetUserId: string) {
       return { success: true, isFollowing: true };
     }
   } catch (error) {
-    console.error("Follow error:", error);
-    return { success: false, error: "Database error" };
+    return { success: false, error: "DB Error" };
   }
 }
+
 export async function getProfileStats(userId: string) {
   try {
     const followers = await db.select({ count: count() }).from(follows).where(eq(follows.followingId, userId));
@@ -179,14 +125,14 @@ export async function getProfileStats(userId: string) {
   }
 }
 
+// --- 4. WATCHLIST (Буду смотреть) ---
+
 export async function toggleWatchlist(mediaId: number, mediaType: 'movie' | 'tv') {
-  const { userId } = await auth();
-  if (!userId) return { success: false, error: "Unauthorized" };
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false };
 
   try {
-    await syncUser(userId); // На всякий случай
-
-    // Проверяем, есть ли уже в списке
     const existing = await db.select()
       .from(watchlist)
       .where(and(
@@ -197,40 +143,29 @@ export async function toggleWatchlist(mediaId: number, mediaType: 'movie' | 'tv'
       .limit(1);
 
     if (existing.length > 0) {
-      // УДАЛЯЕМ
-      await db.delete(watchlist)
-        .where(eq(watchlist.id, existing[0].id));
-      
+      await db.delete(watchlist).where(eq(watchlist.id, existing[0].id));
       revalidatePath(`/${mediaType}/${mediaId}`);
-      revalidatePath(`/profile/${userId}`); // Обновляем профиль тоже
+      revalidatePath(`/profile/${userId}`);
       return { success: true, added: false };
     } else {
-      // ДОБАВЛЯЕМ
-      await db.insert(watchlist).values({
-        userId,
-        mediaId,
-        mediaType,
-        status: 'planned'
-      });
-
+      await db.insert(watchlist).values({ userId, mediaId, mediaType, status: 'planned' });
       revalidatePath(`/${mediaType}/${mediaId}`);
       revalidatePath(`/profile/${userId}`);
       return { success: true, added: true };
     }
   } catch (error) {
-    console.error("Watchlist error:", error);
-    return { success: false, error: "DB Error" };
+    return { success: false };
   }
 }
 
+// --- 5. КОЛЛЕКЦИИ (Lists) ---
+
 export async function createList(name: string, description: string) {
-  const { userId } = await auth();
-  if (!userId) return { success: false, error: "Unauthorized" };
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false };
 
   try {
-    await syncUser(userId); // Страхуемся, что юзер есть
-
-    // 1. Создаем список
     const newList = await db.insert(lists).values({
       name,
       description,
@@ -240,103 +175,21 @@ export async function createList(name: string, description: string) {
 
     const listId = newList[0].id;
 
-    // 2. Добавляем владельца как участника (чтобы он видел этот список в "Мои списки")
-    await db.insert(listMembers).values({
-      listId,
-      userId,
-      role: 'admin'
-    });
+    // Автор = Админ
+    await db.insert(listMembers).values({ listId, userId, role: 'admin' });
 
     revalidatePath('/lists');
     return { success: true, listId };
-
-  } catch (error) {
-    console.error("Create List Error:", error);
-    return { success: false, error: "DB Error" };
-  }
-}
-
-export async function addMemberToList(listId: number, email: string) {
-    const { userId } = await auth();
-    if (!userId) return { success: false, error: "Unauthorized" };
-
-    try {
-        // 1. Ищем юзера по email (ИСПРАВЛЕНО: db.select вместо db.query)
-        const userResult = await db.select()
-            .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
-
-        const targetUser = userResult[0];
-
-        if (!targetUser) return { success: false, error: "Пользователь с таким email не найден" };
-
-        // 2. Добавляем в список
-        await db.insert(listMembers).values({
-            listId,
-            userId: targetUser.id,
-            role: 'editor'
-        });
-
-        revalidatePath(`/lists/${listId}`);
-        return { success: true };
-
-    } catch (e) {
-        console.error(e);
-        // Скорее всего ошибка уникальности (уже добавлен)
-        return { success: false, error: "Пользователь уже в списке" };
-    }
-}
-// --- УДАЛИТЬ ФИЛЬМ ИЗ СПИСКА ---
-export async function removeListMedia(itemId: number, listId: number) {
-    // В реальном проекте тут нужна проверка прав (является ли юзер участником списка)
-    await db.delete(listItems).where(eq(listItems.id, itemId));
-    revalidatePath(`/lists/${listId}`);
-}
-
-export async function toggleListItem(listId: number, mediaId: number, mediaType: 'movie' | 'tv') {
-  const { userId } = await auth();
-  if (!userId) return { success: false };
-
-  try {
-    // Проверяем, есть ли фильм в списке
-    const existing = await db.select()
-      .from(listItems)
-      .where(and(
-        eq(listItems.listId, listId),
-        eq(listItems.mediaId, mediaId),
-        eq(listItems.mediaType, mediaType)
-      ))
-      .limit(1);
-
-    if (existing.length > 0) {
-      // Удаляем
-      await db.delete(listItems).where(eq(listItems.id, existing[0].id));
-      revalidatePath(`/lists/${listId}`);
-      return { success: true, added: false };
-    } else {
-      // Добавляем
-      await db.insert(listItems).values({
-        listId,
-        mediaId,
-        mediaType,
-        addedBy: userId
-      });
-      revalidatePath(`/lists/${listId}`);
-      return { success: true, added: true };
-    }
   } catch (e) {
-    return { success: false, error: "Error" };
+    return { success: false };
   }
 }
 
-// --- ПОЛУЧИТЬ МОИ СПИСКИ (ДЛЯ DROPDOWN) ---
-// Это можно вызывать прямо из Server Component, но для клиентского удобнее так
 export async function getMyListsForDropdown(mediaId: number, mediaType: 'movie' | 'tv') {
-    const { userId } = await auth();
+    const session = await auth();
+    const userId = session?.user?.id;
     if (!userId) return [];
 
-    // 1. Получаем все списки юзера
     const myLists = await db.select({
         id: lists.id,
         name: lists.name,
@@ -346,15 +199,11 @@ export async function getMyListsForDropdown(mediaId: number, mediaType: 'movie' 
     .where(eq(listMembers.userId, userId))
     .orderBy(desc(lists.createdAt));
 
-    // 2. Проверяем, в каких списках УЖЕ есть этот фильм
-    // Это нужно, чтобы поставить галочки
     const containedIn = await db.select({ listId: listItems.listId })
         .from(listItems)
         .where(and(
             eq(listItems.mediaId, mediaId),
             eq(listItems.mediaType, mediaType),
-            // Опционально: можно добавить проверку, что это именно мои списки,
-            // но в целом listItems хранит просто связь
         ));
     
     const containedIds = new Set(containedIn.map(i => i.listId));
@@ -365,57 +214,93 @@ export async function getMyListsForDropdown(mediaId: number, mediaType: 'movie' 
     }));
 }
 
-export async function createMatchSession() {
-  const { userId } = await auth();
-  if (!userId) return { success: false, error: "Unauthorized" };
-
-  // Генерируем короткий ID (можно использовать crypto.randomUUID().slice(0,6))
-  const sessionId = Math.random().toString(36).substring(2, 8);
+export async function toggleListItem(listId: number, mediaId: number, mediaType: 'movie' | 'tv') {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false };
 
   try {
-    await db.insert(matchSessions).values({
-      id: sessionId,
-      creatorId: userId,
-    });
-    return { success: true, sessionId };
+    const existing = await db.select()
+      .from(listItems)
+      .where(and(
+        eq(listItems.listId, listId),
+        eq(listItems.mediaId, mediaId),
+        eq(listItems.mediaType, mediaType)
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db.delete(listItems).where(eq(listItems.id, existing[0].id));
+      revalidatePath(`/lists/${listId}`);
+      return { success: true, added: false };
+    } else {
+      await db.insert(listItems).values({ listId, mediaId, mediaType, addedBy: userId });
+      revalidatePath(`/lists/${listId}`);
+      return { success: true, added: true };
+    }
   } catch (e) {
     return { success: false };
   }
 }
 
-// Проверка совпадения (вызывается после каждого лайка)
-export async function checkMatch(sessionId: string, mediaId: number) {
-    // Считаем сколько лайков у этого фильма в этой сессии
-    const likes = await db.select({ count: count() })
-        .from(matchVotes)
-        .where(and(
-            eq(matchVotes.sessionId, sessionId),
-            eq(matchVotes.mediaId, mediaId),
-            eq(matchVotes.vote, true)
-        ));
-    
-    // Если лайков >= 2, значит это МАТЧ!
-    return likes[0].count >= 2;
+export async function addMemberToList(listId: number, email: string) {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        // Ищем юзера в НАШЕЙ базе (NextAuth)
+        const userResult = await db.select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        const targetUser = userResult[0];
+        if (!targetUser) return { success: false, error: "Пользователь не найден (он должен войти на сайт хотя бы раз)" };
+
+        await db.insert(listMembers).values({
+            listId,
+            userId: targetUser.id,
+            role: 'editor'
+        });
+        revalidatePath(`/lists/${listId}`);
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: "Уже в списке" };
+    }
+}
+
+export async function removeListMedia(itemId: number, listId: number) {
+    await db.delete(listItems).where(eq(listItems.id, itemId));
+    revalidatePath(`/lists/${listId}`);
+}
+
+// --- 6. КИНО-МАТЧ (Tinder Style) ---
+
+export async function createMatchSession() {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false };
+
+  const sessionId = Math.random().toString(36).substring(2, 8); // Короткий ID
+
+  try {
+    await db.insert(matchSessions).values({ id: sessionId, creatorId: userId });
+    return { success: true, sessionId };
+  } catch (e) { return { success: false }; }
 }
 
 export async function submitMatchVote(sessionId: string, mediaId: number, vote: boolean) {
-  const { userId } = await auth();
+  const session = await auth();
+  const userId = session?.user?.id;
   if (!userId) return { success: false };
 
   try {
-    await syncUser(userId);
-
-    // 1. Сохраняем голос
     await db.insert(matchVotes).values({
-      sessionId,
-      userId,
-      mediaId,
-      mediaType: 'movie', // Пока только фильмы
-      vote
-    })
-    .onConflictDoNothing(); // Игнорируем, если уже голосовал
+      sessionId, userId, mediaId, mediaType: 'movie', vote
+    }).onConflictDoNothing();
 
-    // 2. Если это ЛАЙК, проверяем совпадение
+    // Если лайк — проверяем совпадение
     if (vote) {
         const likes = await db.select({ count: count() })
             .from(matchVotes)
@@ -425,42 +310,25 @@ export async function submitMatchVote(sessionId: string, mediaId: number, vote: 
                 eq(matchVotes.vote, true)
             ));
         
-        // Если 2 или более лайков — это МАТЧ!
-        if (likes[0].count >= 2) {
-            return { success: true, isMatch: true };
-        }
+        if (likes[0].count >= 2) return { success: true, isMatch: true };
     }
-
     return { success: true, isMatch: false };
-
-  } catch (e) {
-    console.error(e);
-    return { success: false };
-  }
+  } catch (e) { return { success: false }; }
 }
 
 export async function checkSessionMatches(sessionId: string) {
   try {
-    const matches = await db.select({
-        mediaId: matchVotes.mediaId,
-        count: count()
-    })
-    .from(matchVotes)
-    .where(and(
-        eq(matchVotes.sessionId, sessionId),
-        eq(matchVotes.vote, true)
-    ))
-    .groupBy(matchVotes.mediaId)
-    .having(sql`count(*) >= 2`); // <--- ИСПОЛЬЗУЕМ SQL ВМЕСТО ИМПОРТА HAVING
+    // Ищем фильм с >= 2 лайками
+    const matches = await db.select({ mediaId: matchVotes.mediaId, count: count() })
+        .from(matchVotes)
+        .where(and(eq(matchVotes.sessionId, sessionId), eq(matchVotes.vote, true)))
+        .groupBy(matchVotes.mediaId)
+        .having(sql`count(*) >= 2`);
 
     if (matches.length > 0) {
-        const mediaId = matches[0].mediaId;
-        const movie = await getMovieById(String(mediaId));
+        const movie = await getMovieById(String(matches[0].mediaId));
         return { success: true, match: movie };
     }
-
     return { success: false, match: null };
-  } catch (e) {
-    return { success: false, match: null };
-  }
+  } catch (e) { return { success: false }; }
 }

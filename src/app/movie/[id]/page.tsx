@@ -3,12 +3,12 @@ import { getMovieById } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; // Импортируем БД
 import { watchlist } from '@/db/schema'; // Импортируем таблицу watchlist
-import { auth } from '@clerk/nextjs/server'; // Для проверки юзера
 import { eq, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import WatchlistButton from '@/components/WatchlistButton'; // <--- Наш новый компонент
 import AddToListDropdown from '@/components/AddToListDropdown';
+import { auth } from '@/auth'; // Твой файл настройки
 
 // Отключаем кэш для актуальности данных
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function MoviePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const movieId = Number(params.id);
-
+  
   // 1. Получаем данные о фильме и оценках
   const [movie, userRatings] = await Promise.all([
     getMovieById(params.id),
@@ -33,18 +33,18 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   const isRated = movieRating !== undefined && movieRating !== null;
   const releaseYear = movie.release_date?.split('-')[0];
 
-  // 3. Проверяем Watchlist (Буду смотреть)
-  const { userId } = await auth();
+  const session = await auth();
+const userId = session?.user?.id; // Получаем ID из сессии
+
   let isInWatchlist = false;
-  
   if (userId) {
-      const check = await db.select().from(watchlist).where(and(
-          eq(watchlist.userId, userId),
-          eq(watchlist.mediaId, movieId),
-          eq(watchlist.mediaType, 'movie')
-      ));
-      isInWatchlist = check.length > 0;
-  }
+    const check = await db.select().from(watchlist).where(and(
+        eq(watchlist.userId, userId),
+        eq(watchlist.mediaId, movieId),
+        eq(watchlist.mediaType, 'movie')
+    ));
+    isInWatchlist = check.length > 0;
+  } 
 
   return (
     <div className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30 selection:text-cyan-100 font-sans pb-20">

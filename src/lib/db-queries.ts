@@ -1,10 +1,12 @@
 import { db } from '@/db';
 import { reviews } from '@/db/schema';
-import { auth } from '@clerk/nextjs/server';
 import { eq, and, desc } from 'drizzle-orm';
+import { auth } from '@/auth'; // <--- NextAuth
 
 export async function getUserRatings(mediaId: number, mediaType: 'movie' | 'tv') {
-  const { userId } = await auth();
+  const session = await auth();
+  const userId = session?.user?.id;
+
   if (!userId) return [];
 
   try {
@@ -30,7 +32,8 @@ export async function getUserRatings(mediaId: number, mediaType: 'movie' | 'tv')
 
 // ФУНКЦИЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ДЛЯ ФОРМЫ
 export async function getUserReview(mediaId: number, mediaType: 'movie' | 'tv', seasonNumber: number) {
-  const { userId } = await auth();
+  const session = await auth();
+  const userId = session?.user?.id;
 
   if (!userId) {
     return null;
@@ -47,7 +50,7 @@ export async function getUserReview(mediaId: number, mediaType: 'movie' | 'tv', 
       and(
         eq(reviews.userId, userId),
         eq(reviews.mediaId, mediaId),
-        eq(reviews.mediaType, mediaType), // Убедились, что фильтруем по типу
+        eq(reviews.mediaType, mediaType),
         eq(reviews.seasonNumber, seasonNumber)
       )
     )
@@ -57,7 +60,6 @@ export async function getUserReview(mediaId: number, mediaType: 'movie' | 'tv', 
     if (result.length > 0 && result[0].details) {
       const rawDetails = result[0].details;
 
-      // ❗ ФИКС ПРОБЛЕМЫ №2: Проверяем, не вернулась ли строка вместо объекта
       if (typeof rawDetails === 'string') {
         try {
           const parsed = JSON.parse(rawDetails);
@@ -66,25 +68,23 @@ export async function getUserReview(mediaId: number, mediaType: 'movie' | 'tv', 
           return null;
         }
       }
-      
-      // Если это уже объект
       return rawDetails;
     } 
     
     return null;
-
   } catch (error) {
     return null;
   }
 }
+
 export async function getUserStats() {
-  const { userId } = await auth();
-  if (!userId) return null;
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) return []; // Возвращаем пустой массив, чтобы не ломать map()
 
   try {
-    // Достаем все оценки пользователя
     const userReviews = await db.select().from(reviews).where(eq(reviews.userId, userId));
-    
     return userReviews;
   } catch (error) {
     console.error("Error fetching user stats:", error);

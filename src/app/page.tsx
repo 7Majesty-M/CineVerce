@@ -1,9 +1,12 @@
 // src/app/page.tsx
 import { getPopularMovies, getPopularTVShows } from '../lib/tmdb';
 import Link from 'next/link';
-import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
+import { auth } from '@/auth';
+const session = await auth();
+const userId = session?.user?.id; // Теперь ID - это UUID из твоей базы
 import TopRatedSlider from '../components/TopRatedSlider'; 
 import GlobalSearch from '@/components/GlobalSearch';
+import AuthButtons from '@/components/AuthButtons';
 
 // --- Types ---
 interface MediaItem {
@@ -334,40 +337,23 @@ function Navbar() {
           </div>
         </Link>
         
-        {/* ПРАВАЯ ЧАСТЬ: ПОИСК + ПРОФИЛЬ + ЮЗЕР */}
+        {/* ПРАВАЯ ЧАСТЬ */}
         <div className="flex items-center gap-4 md:gap-6">
           
+          {/* НОВАЯ КНОПКА: КОЛЛЕКЦИИ (Скрыта на мобильных) */}
+          <Link 
+            href="/lists" 
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            Коллекции
+          </Link>
+
           {/* Иконка поиска */}
           <GlobalSearch />
 
-          <SignedOut>
-            <SignInButton mode="modal">
-              <button className="relative group overflow-hidden px-6 py-2.5 rounded-xl font-bold text-sm bg-white text-black hover:scale-105 transition-all duration-300 shadow-[0_0_20px_-5px_rgba(255,255,255,0.5)]">
-                <span className="relative z-10">Войти</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </button>
-            </SignInButton>
-          </SignedOut>
+          <AuthButtons />
 
-          <SignedIn>
-            {/* ССЫЛКА НА ПРОФИЛЬ */}
-            <Link 
-                href="/profile" 
-                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all group"
-            >
-                <span className="text-sm font-bold text-slate-300 group-hover:text-white">Мой профиль</span>
-                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse"></div>
-            </Link>
-
-            {/* Аватарка (Clerk) */}
-            <UserButton 
-                appearance={{ 
-                    elements: { 
-                        userButtonAvatarBox: "w-10 h-10 ring-2 ring-white/10 hover:ring-pink-500 transition-all duration-300 shadow-lg" 
-                    } 
-                }} 
-            />
-          </SignedIn>
         </div>
 
       </div>
