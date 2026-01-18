@@ -2,8 +2,6 @@
 import { getPopularMovies, getPopularTVShows } from '../lib/tmdb';
 import Link from 'next/link';
 import { auth } from '@/auth';
-const session = await auth();
-const userId = session?.user?.id; // Теперь ID - это UUID из твоей базы
 import TopRatedSlider from '../components/TopRatedSlider'; 
 import GlobalSearch from '@/components/GlobalSearch';
 import AuthButtons from '@/components/AuthButtons';
@@ -24,6 +22,10 @@ interface MediaItem {
 
 // --- Main Page Component ---
 export default async function Home() {
+  // ✅ Вызов auth() внутри компонента
+  const session = await auth();
+  const userId = session?.user?.id;
+
   let combinedMedia: MediaItem[] = [];
 
   try {
@@ -78,16 +80,16 @@ export default async function Home() {
         {featuredItem && <HeroSection item={featuredItem} />}
 
         {/* Top Rated Slider */}
-<section className="py-16 px-6 lg:px-12 border-t border-white/5 relative bg-gradient-to-b from-transparent to-black/40">
-  <SectionHeader 
-    title="🏆 Топ рейтинг" 
-    subtitle="Выбор зрителей со всего мира" 
-    gradient="from-yellow-400 via-orange-500 to-red-500" 
-  />
-  
-  {/* Просто вставляем компонент, без лишних div-оберток */}
-  <TopRatedSlider items={topRated} />
-</section>
+        <section className="py-16 px-6 lg:px-12 border-t border-white/5 relative bg-gradient-to-b from-transparent to-black/40">
+          <SectionHeader 
+            title="🏆 Топ рейтинг" 
+            subtitle="Выбор зрителей со всего мира" 
+            gradient="from-yellow-400 via-orange-500 to-red-500" 
+          />
+          
+          {/* Просто вставляем компонент, без лишних div-оберток */}
+          <TopRatedSlider items={topRated} />
+        </section>
 
         {/* Movies Grid */}
         <MediaSection 
@@ -362,6 +364,7 @@ function Navbar() {
     </nav>
   )
 }
+
 function Footer() {
   return (
     <footer className="relative z-10 border-t border-white/5 bg-[#050505] py-16 mt-20">
