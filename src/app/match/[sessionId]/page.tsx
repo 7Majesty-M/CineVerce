@@ -1,18 +1,21 @@
 import { getPopularMovies } from '@/lib/tmdb';
 import MatchClient from '@/components/MatchClient';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/auth'; // NextAuth
 import { redirect } from 'next/navigation';
 
+// Добавляем export default перед функцией
 export default async function SessionPage(props: { params: Promise<{ sessionId: string }> }) {
     const params = await props.params;
-    const { userId } = await auth();
+    const session = await auth();
+    const userId = session?.user?.id;
     
     if (!userId) {
-        // Редирект на вход, потом обратно сюда
-        return redirect(`/sign-in?redirect_url=/match/${params.sessionId}`);
+        // Редирект на вход, если не авторизован
+        // В NextAuth это делается через signIn, но можно просто редиректнуть на главную пока
+        return redirect('/');
     }
 
-    // Загружаем фильмы (можно рандомизировать страницу)
+    // Загружаем фильмы
     const movies = await getPopularMovies(); 
 
     return (
