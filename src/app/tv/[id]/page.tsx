@@ -103,11 +103,11 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
              {/* Title & Badge */}
              <div className="mb-6 fade-in-card" style={{ animationDelay: '0.1s' }}>
                 <div className="flex flex-wrap items-center gap-4 mb-4">
-                   {show.networks && show.networks[0] && (
-                     <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur border border-white/5">
-                        <img src={`https://image.tmdb.org/t/p/w200${show.networks[0].logo_path}`} alt={show.networks[0].name} className="h-6 object-contain filter brightness-0 invert" />
-                     </div>
-                   )}
+                   {(show as any).networks && (show as any).networks[0] && (
+  <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur border border-white/5">
+     <img src={`https://image.tmdb.org/t/p/w200${(show as any).networks[0].logo_path}`} alt={(show as any).networks[0].name} className="h-6 object-contain filter brightness-0 invert" />
+  </div>
+)}
                    <span className="text-sm font-bold text-pink-400 tracking-wider uppercase border border-pink-500/30 px-3 py-1 rounded-full bg-pink-500/10 backdrop-blur-sm">TV Series</span>
                 </div>
                 
