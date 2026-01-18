@@ -13,10 +13,7 @@ export default function TasteRadar({ data }: { data: any[] }) {
   if (!data || data.length === 0) return null;
 
   return (
-    // ДОБАВЛЕНО: min-w-0 и flex-1, чтобы контейнер не схлопывался
-    <div className="w-full h-[300px] md:h-[350px] relative min-w-0 flex-1">
-      
-      {/* ИСПРАВЛЕНО: Добавлен minWidth={0}, чтобы избежать ошибки "width(-1)" */}
+    <div className="w-full h-[350px] relative min-w-0 flex-1">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
           {/* Сетка */}
@@ -25,7 +22,13 @@ export default function TasteRadar({ data }: { data: any[] }) {
           {/* Подписи осей */}
           <PolarAngleAxis 
             dataKey="subject" 
-            tick={{ fill: '#e2e8f0', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }} 
+            tick={{ 
+                fill: '#e2e8f0', 
+                fontSize: 10, 
+                fontWeight: 700,
+                // ИСПРАВЛЕНИЕ: CSS-свойства перенесены в style
+                style: { textTransform: 'uppercase', letterSpacing: '1px' } 
+            }} 
           />
           
           <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
