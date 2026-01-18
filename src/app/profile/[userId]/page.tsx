@@ -115,7 +115,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   // Для Watchlist (НОВОЕ!)
   const watchlistWithData = await Promise.all(
     userWatchlist.map(async (item) => {
-        let mediaData = null;
+        let mediaData: any = null;
         try {
             if (item.mediaType === 'movie') {
                 mediaData = await getMovieById(String(item.mediaId));
