@@ -102,7 +102,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                 <div className="flex flex-wrap items-center gap-4 mb-4">
                    <span className="text-sm font-bold text-cyan-400 tracking-wider uppercase border border-cyan-500/30 px-3 py-1 rounded-full bg-cyan-500/10 backdrop-blur-sm">Movie</span>
                    
-                   {movie.runtime > 0 && (
+                   {movie.runtime && movie.runtime > 0 && (
                      <span className="text-sm font-medium text-slate-400 flex items-center gap-1">
                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                        {Math.floor(movie.runtime / 60)}ч {movie.runtime % 60}м
