@@ -8,6 +8,8 @@ import TopRatedSlider from '../components/TopRatedSlider';
 import GlobalSearch from '@/components/GlobalSearch';
 import AuthButtons from '@/components/AuthButtons';
 
+export const dynamic = 'force-dynamic';
+
 // --- Types ---
 interface MediaItem {
   id: number;
