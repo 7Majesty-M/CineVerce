@@ -1,3 +1,5 @@
+'use client'; // <-- Делаем его клиентским!
+
 import { auth, signIn, signOut } from "@/auth"; // Импорт из настройки NextAuth
 import Link from "next/link";
 
