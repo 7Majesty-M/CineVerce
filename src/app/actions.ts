@@ -11,7 +11,8 @@ import { watchlist } from '@/db/schema';
 import { matchSessions, matchVotes } from '@/db/schema';
 import { nanoid } from 'nanoid'; // Или просто Math.random
 import { getMovieById } from '@/lib/tmdb';
-import { having, gt } from 'drizzle-orm'; // Добавь эти импорты!
+import { sql } from 'drizzle-orm';
+
 // --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ: СИНХРОНИЗАЦИЯ ---
 // Проверяет, есть ли юзер в базе Neon. Если нет — создает копию из Clerk.
 async function syncUser(userId: string) {
@@ -440,8 +441,6 @@ export async function submitMatchVote(sessionId: string, mediaId: number, vote: 
 
 export async function checkSessionMatches(sessionId: string) {
   try {
-    // Ищем фильмы, где vote=true И количество >= 2
-    // В Drizzle groupBy/having выглядит так:
     const matches = await db.select({
         mediaId: matchVotes.mediaId,
         count: count()
@@ -452,13 +451,10 @@ export async function checkSessionMatches(sessionId: string) {
         eq(matchVotes.vote, true)
     ))
     .groupBy(matchVotes.mediaId)
-    .having(gt(count(), 1)); // Больше 1 (то есть 2 и больше)
+    .having(sql`count(*) >= 2`); // <--- ИСПОЛЬЗУЕМ SQL ВМЕСТО ИМПОРТА HAVING
 
     if (matches.length > 0) {
-        // Если нашли совпадение — берем последнее (или любое)
         const mediaId = matches[0].mediaId;
-        
-        // Получаем инфо о фильме для красивой карточки
         const movie = await getMovieById(String(mediaId));
         return { success: true, match: movie };
     }
