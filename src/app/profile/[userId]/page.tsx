@@ -1,7 +1,6 @@
-// src/app/profile/[userId]/page.tsx
 import { db } from '@/db';
-import { reviews, follows, watchlist } from '@/db/schema'; // <--- ДОБАВИЛ watchlist
-import { eq, and, count, desc } from 'drizzle-orm'; // <--- ДОБАВИЛ desc для сортировки
+import { reviews, follows, watchlist } from '@/db/schema';
+import { eq, and, count, desc } from 'drizzle-orm';
 import { clerkClient } from '@clerk/nextjs/server';
 import { auth } from '@clerk/nextjs/server';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
@@ -34,11 +33,11 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .from(reviews)
     .where(eq(reviews.userId, targetUserId));
 
-  // Watchlist (Буду смотреть) - НОВАЯ ЛОГИКА
+  // Watchlist (Буду смотреть)
   const userWatchlist = await db.select()
     .from(watchlist)
     .where(eq(watchlist.userId, targetUserId))
-    .orderBy(desc(watchlist.createdAt)); // Свежие сверху
+    .orderBy(desc(watchlist.createdAt));
 
   // Подписки
   let isFollowing = false;
@@ -58,7 +57,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   // --- 2. ОБРАБОТКА ДАННЫХ ДЛЯ UI ---
 
-  // Статистика для радара
   const totalReviews = userReviews.length;
   const totals = { plot: 0, acting: 0, visuals: 0, sound: 0, characters: 0, atmosphere: 0, ending: 0, originality: 0 };
 
@@ -89,13 +87,13 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   const averageScore = totalReviews ? (userReviews.reduce((a, b) => a + b.rating, 0) / totalReviews).toFixed(1) : '0.0';
 
-  // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
+  // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB ---
 
-  // Для истории оценок
+  // ИСТОРИЯ
   const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime()).slice(0, 5);
   const history = await Promise.all(
     sortedReviews.map(async (review) => {
-        let mediaData = null;
+        let mediaData: any = null; // Принудительный any
         try {
             if (review.mediaType === 'movie') {
                 mediaData = await getMovieById(String(review.mediaId));
@@ -103,19 +101,23 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
                 mediaData = await getTVShowById(String(review.mediaId));
             }
         } catch (e) { }
+        
+        // Безопасное обращение к свойствам через any
+        const safeData = mediaData as any;
+
         return {
             ...review,
-            poster_path: mediaData?.poster_path,
-            title: mediaData?.title || mediaData?.name || 'Неизвестно',
-            year: (mediaData?.release_date || mediaData?.first_air_date || '').split('-')[0]
+            poster_path: safeData?.poster_path,
+            title: safeData?.title || safeData?.name || 'Неизвестно',
+            year: (safeData?.release_date || safeData?.first_air_date || '').split('-')[0]
         };
     })
   );
 
-  // Для Watchlist (НОВОЕ!)
+  // WATCHLIST
   const watchlistWithData = await Promise.all(
     userWatchlist.map(async (item) => {
-        let mediaData: any = null;
+        let mediaData: any = null; // Принудительный any
         try {
             if (item.mediaType === 'movie') {
                 mediaData = await getMovieById(String(item.mediaId));
@@ -123,10 +125,14 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
                 mediaData = await getTVShowById(String(item.mediaId));
             }
         } catch (e) { }
+
+        // Безопасное обращение к свойствам через any
+        const safeData = mediaData as any;
+
         return {
             ...item,
-            poster_path: mediaData?.poster_path,
-            title: mediaData?.title || mediaData?.name || 'Неизвестно',
+            poster_path: safeData?.poster_path,
+            title: safeData?.title || safeData?.name || 'Неизвестно',
         };
     })
   );
@@ -144,7 +150,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
       
-      {/* HEADER (Оставляем как есть, добавил только стат по Watchlist для красоты в будущем) */}
+      {/* HEADER */}
       <div className="relative h-96 w-full overflow-hidden">
          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/40 via-[#050505]/90 to-[#050505] z-0"></div>
          <div className="absolute top-0 inset-x-0 h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-0"></div>
@@ -208,12 +214,10 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
          </div>
       </div>
 
-      {/* --- CLIENT CONTENT --- */}
-      {/* ПЕРЕДАЕМ ЗАГРУЖЕННЫЙ WATCHLIST В КОМПОНЕНТ */}
       <ProfileClientView 
         radarData={radarData} 
         history={history} 
-        watchlist={watchlistWithData} // <--- ВОТ ЗДЕСЬ БЫЛО ПУСТО, ТЕПЕРЬ ДАННЫЕ ЕСТЬ
+        watchlist={watchlistWithData}
         totalReviews={totalReviews}
         averageScore={averageScore}
       />
