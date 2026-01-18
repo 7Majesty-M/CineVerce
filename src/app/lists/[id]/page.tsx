@@ -62,7 +62,7 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
 
   // 5. Подгружаем постеры с TMDB
   const itemsWithData = await Promise.all(items.map(async (item) => {
-      let mediaData = null;
+      let mediaData: any = null;
       try {
           if (item.mediaType === 'movie') mediaData = await getMovieById(String(item.mediaId));
           else mediaData = await getTVShowById(String(item.mediaId));
