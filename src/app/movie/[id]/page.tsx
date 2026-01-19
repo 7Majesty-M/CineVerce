@@ -13,6 +13,30 @@ import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
 import CastList from '@/components/CastList'; // Актеры
 import SimilarList from '@/components/SimilarList'; // Рекомендации
+// --- ТИПИЗАЦИЯ ДЛЯ РАСШИРЕННЫХ ДАННЫХ ---
+interface ExtendedMovie {
+  id: number;
+  original_title?: string;
+  original_language?: string;
+  budget?: number;
+  revenue?: number;
+  status?: string;
+  homepage?: string;
+  imdb_id?: string;
+  production_companies?: { id: number; name: string; logo_path: string | null }[];
+  production_countries?: { iso_3166_1: string; name: string }[];
+  genres?: { id: number; name: string }[];
+}
+
+// Хелпер для денег ($1,000,000)
+const formatMoney = (amount: number) => {
+  if (!amount) return '-';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -184,50 +208,142 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                 <SimilarList items={similar} type="movie" />
             </div>
 
-            {/* RIGHT COLUMN: Details */}
             {/* RIGHT COLUMN: Details (Compact Sticky Card) */}
-            <div className="w-full lg:w-[300px] flex-shrink-0">
+            {/* RIGHT COLUMN: Details (Extended Sticky Card) */}
+            <div className="w-full lg:w-[320px] flex-shrink-0">
                 <div className="lg:sticky lg:top-24 space-y-6">
                     
                     {/* INFO CARD */}
                     <div className="bg-[#121212] border border-white/10 rounded-2xl p-5 shadow-xl overflow-hidden">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                            Инфо
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5 border-b border-white/5 pb-3 flex justify-between items-center">
+                            <span>Детали</span>
+                            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-400">Info</span>
                         </h4>
                         
-                        <div className="flex flex-col">
-                            {/* Строка 1: Статус */}
-                            <div className="flex justify-between items-center py-3 border-b border-white/5">
-                                <span className="text-sm text-slate-400 font-medium">Статус</span>
-                                <span className="text-sm font-bold text-white">Выпущен</span>
-                            </div>
+                        {/* Приводим тип movie к расширенному интерфейсу, чтобы убрать ошибки TS */}
+                        {(() => {
+                            const details = movie as unknown as ExtendedMovie;
+                            
+                            return (
+                                <div className="flex flex-col gap-5">
+                                    
+                                    {/* 1. Оригинальное название (если отличается) */}
+                                    {details.original_title && (movie as any).title !== details.original_title && (
+                                        <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинальное название</span>
+                                            <span className="text-sm font-bold text-white leading-tight">
+                                                {details.original_title}
+                                            </span>
+                                        </div>
+                                    )}
 
-                            {/* Строка 2: Язык */}
-                            <div className="flex justify-between items-center py-3 border-b border-white/5">
-                                <span className="text-sm text-slate-400 font-medium">Оригинал</span>
-                                <span className="text-sm font-bold text-white uppercase bg-white/10 px-2 py-0.5 rounded text-[10px]">
-                                    {movie.original_language}
-                                </span>
-                            </div>
+                                    {/* 2. Сетка: Статус и Язык */}
+                                    <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
+                                        <div>
+                                            <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Статус</span>
+                                            <span className="text-white text-sm font-medium">{details.status || 'Released'}</span>
+                                        </div>
+                                        <div>
+                                            <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Язык</span>
+                                            <span className="text-white text-sm font-bold uppercase bg-white/10 px-2 py-0.5 rounded w-fit text-center">
+                                                {details.original_language}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                            {/* Блок: Жанры */}
-                            <div className="pt-4">
-                                <span className="text-xs text-slate-500 mb-3 block font-bold uppercase tracking-wider">Жанры</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {movie.genres?.map((g: any) => (
-                                        <span key={g.id} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-default">
-                                            {g.name}
-                                        </span>
-                                    ))}
+                                    {/* 3. Финансы (Бюджет и Сборы) */}
+                                    {((details.budget && details.budget > 0) || (details.revenue && details.revenue > 0)) && (
+                                        <div className="flex flex-col gap-3 border-b border-white/5 pb-3">
+                                            {details.budget && details.budget > 0 ? (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Бюджет</span>
+                                                    <span className="text-slate-300 text-sm font-mono">{formatMoney(details.budget)}</span>
+                                                </div>
+                                            ) : null}
+                                            {details.revenue && details.revenue > 0 ? (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Сборы</span>
+                                                    <span className="text-green-400 text-sm font-mono">{formatMoney(details.revenue)}</span>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
+
+                                    {/* 4. Производство (Компании) */}
+                                    {details.production_companies && details.production_companies.length > 0 && (
+                                        <div className="border-b border-white/5 pb-3">
+                                            <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Производство</span>
+                                            <div className="flex flex-col gap-2">
+                                                {details.production_companies.slice(0, 3).map((co) => (
+                                                    <span key={co.id} className="text-xs text-slate-200 font-medium flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 bg-slate-600 rounded-full"></span>
+                                                        {co.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 5. Страны */}
+                                    {details.production_countries && details.production_countries.length > 0 && (
+                                        <div className="border-b border-white/5 pb-3">
+                                            <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Страны</span>
+                                            <div className="flex flex-wrap gap-2">
+                                                {details.production_countries.map((c) => (
+                                                    <span key={c.iso_3166_1} className="text-xs text-slate-300 bg-[#1a1a1a] px-2 py-1 rounded border border-white/5">
+                                                        {c.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 6. Ссылки (Homepage / IMDB) */}
+                                    {(details.homepage || details.imdb_id) && (
+                                        <div className="grid grid-cols-2 gap-3 pt-1">
+                                            {details.homepage && (
+                                                <a 
+                                                    href={details.homepage} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center justify-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-white transition-colors border border-white/10"
+                                                >
+                                                    Website
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                </a>
+                                            )}
+                                            {details.imdb_id && (
+                                                <a 
+                                                    href={`https://www.imdb.com/title/${details.imdb_id}`} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#f5c518] hover:bg-[#e2b616] text-black text-xs font-black transition-colors"
+                                                >
+                                                    IMDb
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* 7. Жанры (в самом низу) */}
+                                    <div className="pt-2">
+                                        <div className="flex flex-wrap gap-2">
+                                            {details.genres?.map((g) => (
+                                                <span key={g.id} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400 cursor-default">
+                                                    {g.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                 </div>
-                            </div>
-                        </div>
+                            );
+                        })()}
                     </div>
 
                 </div>
             </div>
-
-
         </div>
       </div>
     </div>

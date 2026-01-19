@@ -1,6 +1,4 @@
-// src/app/tv/[id]/page.tsx
-
-import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb'; // Импортируем getCredits и getRecommendations
+import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; 
 import { watchlist } from '@/db/schema'; 
@@ -11,30 +9,48 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
-import CastList from '@/components/CastList'; // <-- Компонент Актеров
-import SimilarList from '@/components/SimilarList'; // <-- Компонент Рекомендаций
+import CastList from '@/components/CastList'; 
+import SimilarList from '@/components/SimilarList'; 
 
 export const dynamic = 'force-dynamic';
+
+// --- ТИПИЗАЦИЯ ДЛЯ РАСШИРЕННЫХ ДАННЫХ СЕРИАЛА ---
+interface ExtendedTVShow {
+  id: number;
+  original_name?: string;
+  original_language?: string;
+  in_production?: boolean;
+  status?: string;
+  homepage?: string;
+  number_of_seasons?: number;
+  number_of_episodes?: number;
+  networks?: { id: number; name: string; logo_path: string | null }[];
+  production_companies?: { id: number; name: string; logo_path: string | null }[];
+  genres?: { id: number; name: string }[];
+  first_air_date?: string;
+  last_air_date?: string;
+}
 
 export default async function TVShowPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const showId = Number(params.id);
 
-  // 1. Загружаем ВСЕ данные (Шоу, Рейтинги, Видео, Актеры, Похожие)
   const [show, userRatings, videos, cast, similar] = await Promise.all([
     getTVShowById(params.id),
     getUserRatings(showId, 'tv'),
     getVideos(showId, 'tv'),
-    getCredits(showId, 'tv'),        // <-- Актеры
-    getRecommendations(showId, 'tv') // <-- Похожие сериалы
+    getCredits(showId, 'tv'),        
+    getRecommendations(showId, 'tv') 
   ]);
 
   if (!show) notFound();
 
-  // 2. Трейлер
+  // Приводим к расширенному типу для удобства
+  const details = show as unknown as ExtendedTVShow;
+
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
 
-  // 3. Расчет среднего рейтинга
+  // Расчет рейтинга
   const ratedSeasons = userRatings.filter(r => r.seasonNumber !== null && r.seasonNumber > 0);
   let averageUserRating: string | null = null;
   const hasUserRated = ratedSeasons.length > 0;
@@ -45,7 +61,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
     averageUserRating = Number.isInteger(avg) ? avg.toString() : avg.toFixed(1);
   }
 
-  // Карта оценок для сезонов
   const seasonRatingsMap = new Map<number, number>();
   userRatings.forEach(r => { 
       if (r.seasonNumber !== null) seasonRatingsMap.set(r.seasonNumber, r.rating); 
@@ -53,7 +68,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
 
   const releaseYear = show.first_air_date?.split('-')[0];
 
-  // 4. Watchlist
+  // Watchlist
    const session = await auth(); 
    const userId = session?.user?.id; 
    let isInWatchlist = false;
@@ -103,9 +118,9 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
               {/* Info */}
               <div className="flex-1 pb-2">
                  <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {(show as any).networks && (show as any).networks[0] && (
+                    {details.networks && details.networks[0] && (
                       <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur border border-white/5">
-                          <img src={`https://image.tmdb.org/t/p/w200${(show as any).networks[0].logo_path}`} alt={(show as any).networks[0].name} className="h-5 object-contain filter brightness-0 invert" />
+                          <img src={`https://image.tmdb.org/t/p/w200${details.networks[0].logo_path}`} alt={details.networks[0].name} className="h-5 object-contain filter brightness-0 invert" />
                       </div>
                     )}
                     <div className="px-3 py-1 rounded-md bg-pink-500/10 backdrop-blur-md border border-pink-500/20 text-[10px] font-bold tracking-widest uppercase text-pink-400">TV Series</div>
@@ -137,9 +152,9 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                             {hasUserRated ? <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></> : <span className="opacity-70 text-xs uppercase tracking-wide">Оцените сезоны ниже ↓</span>}
                         </div>
                         <div className="w-px h-6 bg-white/10" />
-                        <div className="scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} /></div>
+                        <div className="scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} /></div>
                         <div className="w-px h-6 bg-white/10" />
-                        <div className="scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" /></div>
+                        <div className="scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} /></div>
                     </div>
                  </div>
               </div>
@@ -151,13 +166,13 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
       <div className="container mx-auto px-6 lg:px-12 py-20 relative z-20">
         
         {/* TOP: Story, Cast, Similar vs Details */}
-        <div className="flex flex-col lg:flex-row gap-16 mb-24">
+        <div className="flex flex-col lg:flex-row gap-12 xl:gap-20 mb-24">
             
             {/* Left Content */}
             <div className="flex-1 min-w-0">
                 <div className="mb-16">
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3"><span className="w-1 h-8 bg-pink-500 rounded-full"></span>Сюжет</h3>
-                    <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light">{show.overview || "Описание отсутствует."}</p>
+                    <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light whitespace-pre-line">{show.overview || "Описание отсутствует."}</p>
                 </div>
 
                 {/* --- АКТЕРЫ --- */}
@@ -167,23 +182,105 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                 <SimilarList items={similar} type="tv" />
             </div>
 
-            {/* Right Details */}
-            <div className="w-full lg:w-[350px] space-y-8 text-sm">
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Статус</span>
-                    <span className="text-white text-lg font-medium">{show.in_production ? 'Выходит' : 'Завершен'}</span>
-                </div>
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Оригинал</span>
-                    <span className="text-white text-lg font-medium uppercase">{show.original_language}</span>
-                </div>
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Жанры</span>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {show.genres?.map((g: any) => (
-                            <span key={g.id} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-slate-300">{g.name}</span>
-                        ))}
+            {/* Right Details (Extended Sticky Card) */}
+            <div className="w-full lg:w-[320px] flex-shrink-0">
+                <div className="lg:sticky lg:top-24 space-y-6">
+                    
+                    {/* INFO CARD */}
+                    <div className="bg-[#121212] border border-white/10 rounded-2xl p-5 shadow-xl overflow-hidden">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-5 border-b border-white/5 pb-3 flex justify-between items-center">
+                            <span>Детали</span>
+                            <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-400">Info</span>
+                        </h4>
+                        
+                        <div className="flex flex-col gap-5">
+                            
+                            {/* 1. Оригинальное название (если отличается) */}
+                            {details.original_name && show.name !== details.original_name && (
+                                <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинал</span>
+                                    <span className="text-sm font-bold text-white leading-tight">
+                                        {details.original_name}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* 2. Сетка: Статус и Язык */}
+                            <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
+                                <div>
+                                    <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Статус</span>
+                                    <span className="text-white text-sm font-medium">{details.in_production ? 'Выходит' : 'Завершен'}</span>
+                                </div>
+                                <div>
+                                    <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Язык</span>
+                                    <span className="text-white text-sm font-bold uppercase bg-white/10 px-2 py-0.5 rounded w-fit text-center">
+                                        {details.original_language}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* 3. Сеть (Канал) */}
+                            {details.networks && details.networks.length > 0 && (
+                                <div className="border-b border-white/5 pb-3">
+                                    <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Канал</span>
+                                    <div className="flex flex-wrap gap-3">
+                                        {details.networks.map((net) => (
+                                            <div key={net.id} className="flex items-center gap-2 bg-white/5 px-2 py-1 rounded">
+                                                {net.logo_path ? (
+                                                    <img src={`https://image.tmdb.org/t/p/w200${net.logo_path}`} alt={net.name} className="h-4 object-contain filter brightness-0 invert opacity-80" />
+                                                ) : (
+                                                    <span className="text-xs font-bold text-white">{net.name}</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 4. Производство */}
+                            {details.production_companies && details.production_companies.length > 0 && (
+                                <div className="border-b border-white/5 pb-3">
+                                    <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Производство</span>
+                                    <div className="flex flex-col gap-2">
+                                        {details.production_companies.slice(0, 3).map((co) => (
+                                            <span key={co.id} className="text-xs text-slate-200 font-medium flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 bg-slate-600 rounded-full"></span>
+                                                {co.name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 5. Ссылки */}
+                            {details.homepage && (
+                                <div className="pt-1">
+                                    <a 
+                                        href={details.homepage} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center gap-2 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-white transition-colors border border-white/10 w-full"
+                                    >
+                                        Официальный сайт
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </a>
+                                </div>
+                            )}
+
+                            {/* 6. Жанры */}
+                            <div className="pt-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {details.genres?.map((g) => (
+                                        <span key={g.id} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] font-bold text-slate-400 cursor-default">
+                                            {g.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -207,53 +304,53 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  
                  return (
                     <div key={season.id} className="group relative bg-[#0a0a0a] rounded-2xl border border-white/5 hover:border-pink-500/30 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(236,72,153,0.2)] hover:-translate-y-1 flex h-[220px] hover:z-50">
-                       
-                       {/* Poster */}
-                       <div className="w-[140px] flex-shrink-0 relative overflow-hidden rounded-l-2xl">
-                          {season.poster_path ? (
-                             <img src={`https://image.tmdb.org/t/p/w342${season.poster_path}`} alt={season.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                          ) : show.poster_path ? (
-                             <img src={`https://image.tmdb.org/t/p/w342${show.poster_path}`} alt={show.name} className="w-full h-full object-cover opacity-50 grayscale" />
-                          ) : (
-                             <div className="w-full h-full bg-[#151515] flex items-center justify-center text-xs text-slate-700">No Image</div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
-                       </div>
+                        
+                        {/* Poster */}
+                        <div className="w-[140px] flex-shrink-0 relative overflow-hidden rounded-l-2xl">
+                           {season.poster_path ? (
+                              <img src={`https://image.tmdb.org/t/p/w342${season.poster_path}`} alt={season.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                           ) : show.poster_path ? (
+                              <img src={`https://image.tmdb.org/t/p/w342${show.poster_path}`} alt={show.name} className="w-full h-full object-cover opacity-50 grayscale" />
+                           ) : (
+                              <div className="w-full h-full bg-[#151515] flex items-center justify-center text-xs text-slate-700">No Image</div>
+                           )}
+                           <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
+                        </div>
 
-                       {/* Info */}
-                       <div className="flex-1 p-5 flex flex-col justify-between bg-gradient-to-r from-[#0a0a0a] to-[#111] relative rounded-r-2xl">
-                          <div className="absolute top-0 right-0 w-16 h-16 bg-pink-500/5 blur-2xl rounded-full pointer-events-none group-hover:bg-pink-500/10 transition-colors"></div>
-                          <div>
-                             <h3 className="font-bold text-xl text-white group-hover:text-pink-400 transition-colors line-clamp-1 mb-1">{season.name}</h3>
-                             <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider relative z-10">
-                                <span>{airYear || 'TBA'}</span>
-                                <span className="w-1 h-1 rounded-full bg-slate-700"></span>
-                                <span>{season.episode_count} Эп.</span>
-                             </div>
-                             {season.overview && (
-                                <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed opacity-80 mb-4 relative z-10">{season.overview}</p>
-                             )}
-                          </div>
-                          
-                          <div className="relative z-50">
-                            <Link 
-                                href={`/tv/${show.id}/season/${season.season_number}/rate`}
-                                className={`group/btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 w-fit
-                                    ${isRatedSeason 
-                                        ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20' 
-                                        : 'bg-white/5 border-white/10 hover:bg-pink-600 hover:border-pink-500 hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]'
-                                    }
-                                `}
-                            >
-                                <div className={`flex items-center justify-center w-6 h-6 rounded-full transition-colors font-bold text-xs ${isRatedSeason ? 'bg-green-500 text-black' : 'bg-white/10 text-slate-300 group-hover/btn:bg-white group-hover/btn:text-pink-600'}`}>
-                                    {isRatedSeason ? seasonRating : <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4"/></svg>}
-                                </div>
-                                <span className={`text-xs font-bold uppercase tracking-wider ${isRatedSeason ? 'text-green-400' : 'text-slate-300 group-hover/btn:text-white'}`}>
-                                    {isRatedSeason ? `Ваша оценка: ${seasonRating}` : 'Оценить сезон'}
-                                </span>
-                            </Link>
-                          </div>
-                       </div>
+                        {/* Info */}
+                        <div className="flex-1 p-5 flex flex-col justify-between bg-gradient-to-r from-[#0a0a0a] to-[#111] relative rounded-r-2xl">
+                           <div className="absolute top-0 right-0 w-16 h-16 bg-pink-500/5 blur-2xl rounded-full pointer-events-none group-hover:bg-pink-500/10 transition-colors"></div>
+                           <div>
+                              <h3 className="font-bold text-xl text-white group-hover:text-pink-400 transition-colors line-clamp-1 mb-1">{season.name}</h3>
+                              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider relative z-10">
+                                 <span>{airYear || 'TBA'}</span>
+                                 <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                                 <span>{season.episode_count} Эп.</span>
+                              </div>
+                              {season.overview && (
+                                 <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed opacity-80 mb-4 relative z-10">{season.overview}</p>
+                              )}
+                           </div>
+                           
+                           <div className="relative z-50">
+                             <Link 
+                                 href={`/tv/${show.id}/season/${season.season_number}/rate`}
+                                 className={`group/btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 w-fit
+                                     ${isRatedSeason 
+                                         ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20' 
+                                         : 'bg-white/5 border-white/10 hover:bg-pink-600 hover:border-pink-500 hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]'
+                                     }
+                                 `}
+                             >
+                                 <div className={`flex items-center justify-center w-6 h-6 rounded-full transition-colors font-bold text-xs ${isRatedSeason ? 'bg-green-500 text-black' : 'bg-white/10 text-slate-300 group-hover/btn:bg-white group-hover/btn:text-pink-600'}`}>
+                                     {isRatedSeason ? seasonRating : <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4"/></svg>}
+                                 </div>
+                                 <span className={`text-xs font-bold uppercase tracking-wider ${isRatedSeason ? 'text-green-400' : 'text-slate-300 group-hover/btn:text-white'}`}>
+                                     {isRatedSeason ? `Ваша оценка: ${seasonRating}` : 'Оценить сезон'}
+                                 </span>
+                             </Link>
+                           </div>
+                        </div>
                     </div>
                  )
               })}
