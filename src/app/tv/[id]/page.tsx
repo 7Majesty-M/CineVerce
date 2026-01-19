@@ -1,6 +1,6 @@
 // src/app/tv/[id]/page.tsx
 
-import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
+import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb'; // Импортируем getCredits и getRecommendations
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; 
 import { watchlist } from '@/db/schema'; 
@@ -11,8 +11,8 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
-import CastList from '@/components/CastList'; // Компонент актеров
-import SimilarList from '@/components/SimilarList'; // Компонент рекомендаций
+import CastList from '@/components/CastList'; // <-- Компонент Актеров
+import SimilarList from '@/components/SimilarList'; // <-- Компонент Рекомендаций
 
 export const dynamic = 'force-dynamic';
 
@@ -25,8 +25,8 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
     getTVShowById(params.id),
     getUserRatings(showId, 'tv'),
     getVideos(showId, 'tv'),
-    getCredits(showId, 'tv'),
-    getRecommendations(showId, 'tv'),
+    getCredits(showId, 'tv'),        // <-- Актеры
+    getRecommendations(showId, 'tv') // <-- Похожие сериалы
   ]);
 
   if (!show) notFound();
@@ -45,7 +45,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
     averageUserRating = Number.isInteger(avg) ? avg.toString() : avg.toFixed(1);
   }
 
-  // Карта оценок для отображения на карточках сезонов
+  // Карта оценок для сезонов
   const seasonRatingsMap = new Map<number, number>();
   userRatings.forEach(r => { 
       if (r.seasonNumber !== null) seasonRatingsMap.set(r.seasonNumber, r.rating); 
@@ -69,7 +69,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-pink-500/30">
       
-      {/* --- HERO SECTION (PREMIUM) --- */}
+      {/* --- HERO SECTION --- */}
       <MovieHero backdropPath={show.backdrop_path} videoKey={trailerKey}>
           
           <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-50">
@@ -82,7 +82,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
           <div className="container mx-auto px-6 lg:px-12 h-full flex flex-col justify-end pb-16 relative z-10">
             <div className="flex flex-col lg:flex-row gap-12 lg:items-end">
               
-              {/* Poster + Reflection */}
+              {/* Poster */}
               <div className="hidden lg:block w-[320px] flex-shrink-0 relative group mb-4">
                  <div className="rounded-xl overflow-hidden shadow-[0_0_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] ring-1 ring-white/5 transition-transform duration-500 group-hover:scale-[1.02] group-hover:-translate-y-2 group-hover:shadow-pink-500/20">
                     {show.poster_path ? (
@@ -100,7 +100,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
               </div>
 
-              {/* Info Column */}
+              {/* Info */}
               <div className="flex-1 pb-2">
                  <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {(show as any).networks && (show as any).networks[0] && (
@@ -147,7 +147,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
           </div>
       </MovieHero>
 
-      {/* --- BODY CONTENT --- */}
+      {/* --- CONTENT & SEASONS --- */}
       <div className="container mx-auto px-6 lg:px-12 py-20 relative z-20">
         
         {/* TOP: Story, Cast, Similar vs Details */}
@@ -160,10 +160,10 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                     <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light">{show.overview || "Описание отсутствует."}</p>
                 </div>
 
-                {/* Актеры */}
+                {/* --- АКТЕРЫ --- */}
                 <CastList cast={cast} />
 
-                {/* Рекомендации */}
+                {/* --- РЕКОМЕНДАЦИИ --- */}
                 <SimilarList items={similar} type="tv" />
             </div>
 

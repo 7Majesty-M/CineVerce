@@ -245,3 +245,60 @@ export async function getRecommendations(id: number, type: 'movie' | 'tv'): Prom
     return [];
   }
 }
+
+export interface PersonDetails {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+}
+
+export interface PersonCredit {
+  id: number;
+  title?: string; // Movie
+  name?: string;  // TV
+  poster_path: string | null;
+  vote_average: number;
+  media_type: 'movie' | 'tv';
+  character?: string;
+  release_date?: string;
+  first_air_date?: string;
+  vote_count: number; // Для сортировки по популярности
+}
+
+// 1. Детали персоны
+export async function getPersonById(id: string): Promise<PersonDetails | null> {
+  if (!API_KEY) return null;
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}/person/${id}?api_key=${API_KEY}&language=${LANG}`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return null;
+    return res.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+// 2. Фильмография (Комбинированная: и фильмы, и сериалы)
+export async function getPersonCredits(id: string): Promise<PersonCredit[]> {
+  if (!API_KEY) return [];
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}/person/${id}/combined_credits?api_key=${API_KEY}&language=${LANG}`,
+      { next: { revalidate: 3600 } }
+    );
+    const data = await res.json();
+    
+    // Сортируем: сначала самые популярные (где больше всего голосов)
+    const sorted = (data.cast || []).sort((a: any, b: any) => b.vote_count - a.vote_count);
+    
+    return sorted;
+  } catch (error) {
+    return [];
+  }
+}

@@ -1,6 +1,6 @@
 // src/app/movie/[id]/page.tsx
 
-import { getMovieById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb'; // Импортируем всё необходимое
+import { getMovieById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db';
 import { watchlist } from '@/db/schema';
@@ -11,8 +11,8 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
-import CastList from '@/components/CastList'; // <-- Актеры
-import SimilarList from '@/components/SimilarList'; // <-- Рекомендации
+import CastList from '@/components/CastList'; // Актеры
+import SimilarList from '@/components/SimilarList'; // Рекомендации
 
 export const dynamic = 'force-dynamic';
 
@@ -20,22 +20,27 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   const params = await props.params;
   const movieId = Number(params.id);
   
-  // 1. ЗАГРУЖАЕМ ВСЁ (Фильм, Рейтинги, Видео, Актеры, Похожие)
+  // 1. ЗАГРУЖАЕМ ВСЁ (Фильм, Рейтинг, Видео, Актеры, Похожие)
   const [movie, userRatings, videos, cast, similar] = await Promise.all([
     getMovieById(params.id),
     getUserRatings(movieId, 'movie'),
     getVideos(movieId, 'movie'),
-    getCredits(movieId, 'movie'),       // <-- Загружаем актеров
-    getRecommendations(movieId, 'movie') // <-- Загружаем похожие
+    getCredits(movieId, 'movie'),
+    getRecommendations(movieId, 'movie')
   ]);
 
   if (!movie) notFound();
 
+  // Трейлер
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
+  
+  // Рейтинг
   const movieRating = userRatings.find(r => r.seasonNumber === null || r.seasonNumber === 0)?.rating || null;
   const isRated = movieRating !== undefined && movieRating !== null;
+  
   const releaseYear = movie.release_date?.split('-')[0];
   
+  // Watchlist
   const session = await auth();
   const userId = session?.user?.id;
   
@@ -128,11 +133,8 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
 
                  {/* ACTION BUTTONS */}
                  <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                    
-                    {/* КНОПКА PLAY */}
                     {trailerKey && <PlayHeroButton />}
                     
-                    {/* КНОПКИ ДЕЙСТВИЙ */}
                     <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                         <Link 
                             href={`/movie/${movie.id}/rate`} 
@@ -175,10 +177,10 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     </p>
                 </div>
 
-                {/* --- АКТЕРЫ (Новое) --- */}
+                {/* --- АКТЕРЫ --- */}
                 <CastList cast={cast} />
 
-                {/* --- ПОХОЖИЕ (Новое) --- */}
+                {/* --- ПОХОЖИЕ --- */}
                 <SimilarList items={similar} type="movie" />
             </div>
 
