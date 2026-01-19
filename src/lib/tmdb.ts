@@ -158,6 +158,10 @@ export async function searchMulti(query: string) {
 }
 
 // --- ВИДЕО (ТРЕЙЛЕРЫ) ---
+// В начале файла src/lib/tmdb.ts
+// const LANG = 'ru-RU'; // Оставь как есть
+
+// ...
 
 export async function getVideos(id: number, type: 'movie' | 'tv'): Promise<Video[]> {
   if (!API_KEY) return [];
@@ -172,8 +176,9 @@ export async function getVideos(id: number, type: 'movie' | 'tv'): Promise<Video
     let data = await res.json();
     let results = data.results || [];
 
-    // 2. Если пусто — пробуем на Английском (Fallback)
-    if (results.length === 0 && LANG !== 'en-US') {
+    // ИСПРАВЛЕНИЕ: Приводим LANG к string, чтобы TS не ругался
+    // Или просто убираем проверку, если LANG всегда 'ru-RU'
+    if (results.length === 0 && (LANG as string) !== 'en-US') {
        res = await fetch(
         `${TMDB_BASE_URL}/${type}/${id}/videos?api_key=${API_KEY}&language=en-US`,
         { next: { revalidate: 3600 } }
