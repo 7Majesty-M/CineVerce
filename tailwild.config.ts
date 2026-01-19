@@ -1,4 +1,3 @@
-// tailwind.config.ts
 import type { Config } from "tailwindcss";
 
 const config: Config = {
@@ -6,7 +5,6 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    // Если у вас есть папка lib или компоненты вне app
     "./src/**/*.{js,ts,jsx,tsx,mdx}", 
   ],
   theme: {
@@ -16,12 +14,35 @@ const config: Config = {
         "gradient-conic":
           "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
-      // Добавим кастомные анимации из вашего CSS, чтобы Tailwind их видел
+      // 1. Сначала описываем, КАК происходит движение (Keyframes)
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        fadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        slowZoom: {
+          '0%': { transform: 'scale(1)' },
+          '100%': { transform: 'scale(1.1)' },
+        },
+        pulseSlow: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.8' },
+        }
+      },
+      // 2. Затем регистрируем классы анимации (Animation)
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',
+        'fade-in-up': 'fadeInUp 0.8s ease-out forwards', // Тот самый эффект "всплытия" текста
+        'slow-zoom': 'slowZoom 20s linear infinite alternate', // Медленное движение фона (эффект Кена Бернса)
+        'pulse-slow': 'pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
     },
   },
   plugins: [],
 };
+
 export default config;
