@@ -4,7 +4,15 @@ import { useState, useEffect, useRef } from 'react';
 import { getMyListsForDropdown, toggleListItem, createList } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 
-export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: number, mediaType: 'movie' | 'tv' }) {
+export default function AddToListDropdown({ 
+    mediaId, 
+    mediaType,
+    compact = false // <--- 1. Добавили проп
+}: { 
+    mediaId: number, 
+    mediaType: 'movie' | 'tv',
+    compact?: boolean 
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [lists, setLists] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,7 +22,6 @@ export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: num
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Загружаем списки при открытии
   useEffect(() => {
     if (isOpen) {
         setLoading(true);
@@ -25,7 +32,6 @@ export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: num
     }
   }, [isOpen, mediaId, mediaType]);
 
-  // Закрытие по клику вне
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -38,7 +44,6 @@ export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: num
   }, []);
 
   const handleToggleList = async (listId: number) => {
-      // Оптимистик UI
       setLists(prev => prev.map(l => l.id === listId ? { ...l, hasMedia: !l.hasMedia } : l));
       await toggleListItem(listId, mediaId, mediaType);
       router.refresh();
@@ -48,11 +53,9 @@ export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: num
       if(!newListName.trim()) return;
       const res = await createList(newListName, '');
       if(res.success && res.listId) {
-          // Сразу добавляем фильм в новый список
           await toggleListItem(res.listId, mediaId, mediaType);
           setNewListName('');
           setCreating(false);
-          // Перезагружаем списки
           const updatedLists = await getMyListsForDropdown(mediaId, mediaType);
           setLists(updatedLists);
           router.refresh();
@@ -65,12 +68,20 @@ export default function AddToListDropdown({ mediaId, mediaType }: { mediaId: num
         {/* КНОПКА ТРИГГЕР */}
         <button 
             onClick={() => setIsOpen(!isOpen)}
-            className={`px-6 py-3 rounded-xl border border-white/10 font-bold text-sm transition-all flex items-center gap-2
+            // 2. Условные классы: p-3 rounded-full для компактного вида
+            className={`
+                border border-white/10 font-bold text-sm transition-all flex items-center justify-center
+                ${compact ? 'p-3 rounded-full' : 'px-6 py-3 rounded-xl gap-2'}
                 ${isOpen ? 'bg-white text-black' : 'bg-white/5 hover:bg-white/10 text-white'}
             `}
+            title="Добавить в коллекцию"
         >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            В коллекцию
+            
+            {/* 3. Скрываем текст */}
+            {!compact && (
+                <span>В коллекцию</span>
+            )}
         </button>
 
         {/* ВЫПАДАЮЩЕЕ МЕНЮ */}

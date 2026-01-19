@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchMoreMovies, fetchMoreTVShows } from '@/app/actions';
 
+// 1. ИМПОРТИРУЕМ КОМПОНЕНТЫ КНОПОК
+import WatchlistButton from '@/components/WatchlistButton';
+import AddToListDropdown from '@/components/AddToListDropdown';
+
 export interface MediaItem {
   id: number;
   title: string;
@@ -13,6 +17,8 @@ export interface MediaItem {
   vote_average: number;
   release_date: string;
   mediaType: 'movie' | 'tv';
+  // 2. Добавляем поле для состояния
+  isInWatchlist?: boolean; 
 }
 
 interface MediaListProps {
@@ -21,12 +27,10 @@ interface MediaListProps {
 }
 
 export default function MediaList({ initialItems, type }: MediaListProps) {
-  // ЗАЩИТА: Если initialItems придет undefined, используем пустой массив
   const [items, setItems] = useState<MediaItem[]>(initialItems || []);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Синхронизация пропсов со стейтом (если данные подгрузятся позже)
   useEffect(() => {
     if (initialItems) {
       setItems(initialItems);
@@ -42,7 +46,6 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
         ? await fetchMoreMovies(nextPage) 
         : await fetchMoreTVShows(nextPage);
 
-      // Проверка, что пришел массив
       if (!Array.isArray(rawData)) return;
 
       const newItems: MediaItem[] = rawData.map((item: any) => ({
@@ -54,16 +57,16 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
         vote_average: item.vote_average,
         release_date: item.release_date || item.first_air_date,
         mediaType: type,
+        // 3. Устанавливаем дефолтное значение
+        isInWatchlist: false 
       }));
 
       setItems((prev) => {
-        // Безопасная фильтрация дубликатов
         const prevItems = Array.isArray(prev) ? prev : [];
         const existingIds = new Set(prevItems.map(i => i.id));
         const uniqueNewItems = newItems.filter(item => !existingIds.has(item.id));
         return [...prevItems, ...uniqueNewItems];
       });
-
       setPage(nextPage);
     } catch (error) {
       console.error("Failed to load more:", error);
@@ -72,14 +75,11 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
     }
   };
 
-  // Если элементов нет вообще, ничего не рендерим или показываем заглушку
   if (!items) return null;
 
   return (
     <>
-      {/* СЕТКА */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 md:gap-8">
-        {/* ЗАЩИТА: Добавляем '?', чтобы map не падал на undefined */}
         {items?.map((item, index) => (
           <MediaCard 
             key={`${item.mediaType}-${item.id}-${index}`} 
@@ -90,7 +90,6 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
         ))}
       </div>
 
-      {/* КНОПКА ЗАГРУЗКИ */}
       <div className="mt-12 flex justify-center">
         <button
           onClick={loadMore}
@@ -151,10 +150,44 @@ function MediaCard({ item, index, type }: { item: MediaItem; index: number; type
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
             
+            {/* Оверлей при наведении */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-              <div className={`w-14 h-14 rounded-full ${badgeColor} flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] transform scale-50 group-hover:scale-100 transition-all duration-300 group-hover:rotate-0 rotate-45`}>
+              
+              {/* Кнопка Play по центру (старая) */}
+              <div className={`w-14 h-14 rounded-full ${badgeColor} flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)\] transform scale-50 group-hover:scale-100 transition-all duration-300 group-hover:rotate-0 rotate-45`}>
                 <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               </div>
+
+              {/* 
+                  НОВЫЕ КНОПКИ 
+                  e.preventDefault() нужен, чтобы клик по кнопке не переходил по ссылке (Link)
+              */}
+              
+              {/* Слева внизу: В список */}
+              <div 
+                className="absolute bottom-3 left-3"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              >
+                  <AddToListDropdown 
+                    mediaId={item.id} 
+                    mediaType={type}
+                    compact={true}
+                  />
+              </div>
+
+              {/* Справа внизу: Буду смотреть */}
+              <div 
+                className="absolute bottom-3 right-3"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              >
+                  <WatchlistButton 
+                    mediaId={item.id} 
+                    mediaType={type} 
+                    isInWatchlist={item.isInWatchlist || false}
+                    compact={true}
+                  />
+              </div>
+
             </div>
           </>
         ) : (

@@ -292,13 +292,35 @@ export async function getPersonCredits(id: string): Promise<PersonCredit[]> {
       `${TMDB_BASE_URL}/person/${id}/combined_credits?api_key=${API_KEY}&language=${LANG}`,
       { next: { revalidate: 3600 } }
     );
+    
+    if (!res.ok) {
+      console.error('TMDB API error:', res.status, res.statusText);
+      return [];
+    }
+    
     const data = await res.json();
     
-    // Сортируем: сначала самые популярные (где больше всего голосов)
-    const sorted = (data.cast || []).sort((a: any, b: any) => b.vote_count - a.vote_count);
+    // Проверяем что данные пришли
+    if (!data.cast || !Array.isArray(data.cast)) {
+      console.error('Invalid cast data:', data);
+      return [];
+    }
     
+    console.log(`Total credits found: ${data.cast.length}`); // Для отладки
+    
+    // Сортируем: сначала самые популярные (где больше всего голосов)
+    const sorted = data.cast.sort((a: any, b: any) => {
+      // Дополнительная сортировка: сначала по голосам, потом по популярности
+      const voteDiff = (b.vote_count || 0) - (a.vote_count || 0);
+      if (voteDiff !== 0) return voteDiff;
+      return (b.popularity || 0) - (a.popularity || 0);
+    });
+    
+    // Возвращаем все результаты (можно ограничить если нужно)
     return sorted;
+    
   } catch (error) {
+    console.error('Error fetching person credits:', error);
     return [];
   }
 }

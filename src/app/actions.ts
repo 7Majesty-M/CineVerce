@@ -9,6 +9,37 @@ import { revalidatePath } from 'next/cache';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import { getMovieById, searchMulti, getPopularMovies, getPopularTVShows } from '@/lib/tmdb';
 
+export async function updateListName(listId: number, newName: string) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId || !newName.trim()) {
+    return { success: false, error: 'Invalid data' };
+  }
+
+  // Проверяем, админ ли пользователь
+  const membership = await db.select()
+    .from(listMembers)
+    .where(and(eq(listMembers.listId, listId), eq(listMembers.userId, userId)))
+    .limit(1);
+
+  const isMemberAdmin = membership[0]?.role === 'admin';
+  
+  // Дополнительная проверка: владелец списка (если вы храните ownerId в lists)
+  // Но обычно проверки role === 'admin' достаточно, если создатель получает админку сразу.
+
+  if (!isMemberAdmin) {
+    return { success: false, error: 'Forbidden' };
+  }
+
+  await db.update(lists)
+    .set({ name: newName.trim() })
+    .where(eq(lists.id, listId));
+
+  revalidatePath(`/lists/${listId}`);
+  return { success: true };
+}
+
 // --- 1. РЕЙТИНГИ (Оценки) ---
 
 export async function saveMediaRating(data: {
@@ -374,4 +405,4 @@ export async function fetchMoreMovies(page: number) {
 
 export async function fetchMoreTVShows(page: number) {
   return await getPaginatedBatch(page, getPopularTVShows);
-  }
+}

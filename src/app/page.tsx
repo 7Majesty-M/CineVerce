@@ -7,6 +7,10 @@ import TopRatedSlider from '@/components/TopRatedSlider';
 import Navbar from '@/components/Navbar';
 import MediaList, { MediaItem } from '@/components/MediaList';
 
+// ИМПОРТИРУЕМ КНОПКИ
+import WatchlistButton from '@/components/WatchlistButton';
+import AddToListDropdown from '@/components/AddToListDropdown';
+
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
@@ -19,7 +23,6 @@ export default async function Home() {
   let featuredItem: MediaItem | null = null;
 
   try {
-    // ВАЖНО: Вызываем fetchMore...(1). 
     const [moviesData, tvShowsData] = await Promise.all([
       fetchMoreMovies(1),
       fetchMoreTVShows(1)
@@ -35,6 +38,7 @@ export default async function Home() {
       vote_average: movie.vote_average,
       release_date: movie.release_date,
       mediaType: 'movie',
+      isInWatchlist: false // Добавляем дефолтное значение
     }));
 
     // Форматируем Сериалы
@@ -47,12 +51,10 @@ export default async function Home() {
       vote_average: show.vote_average,
       release_date: show.first_air_date,
       mediaType: 'tv',
+      isInWatchlist: false // Добавляем дефолтное значение
     }));
 
     // --- ФИЛЬТРАЦИЯ ДУБЛИКАТОВ ---
-    // TMDB иногда возвращает один и тот же фильм на стыке страниц,
-    // поэтому мы должны вручную удалить повторы по ID.
-
     const uniqueMoviesMap = new Map();
     rawMovies.forEach(item => uniqueMoviesMap.set(item.id, item));
     movies = Array.from(uniqueMoviesMap.values());
@@ -112,7 +114,7 @@ export default async function Home() {
           subtitle="Истории, от которых невозможно оторваться"
           gradient="from-purple-400 via-pink-500 to-rose-500"
         >
-          {/* Передаем очищенный список tvShows */}
+          {/* Передаем очищенный список tvShows. Кнопки внутри MediaList применятся автоматически */}
           <MediaList initialItems={tvShows} type="tv" />
         </MediaSection>
 
@@ -123,7 +125,7 @@ export default async function Home() {
   );
 }
 
-// --- Components (Остаются без изменений) ---
+// --- Components ---
 
 function MediaSection({ title, subtitle, gradient, children }: { title: string, subtitle: string, gradient: string, children: React.ReactNode }) {
   return (
@@ -156,6 +158,7 @@ function HeroSection({ item }: { item: MediaItem }) {
   if (!item) return null;
   const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
   const score = item.vote_average ? Math.round(item.vote_average * 10) : 0;
+
   const getScoreColor = (score: number) => {
     if (score >= 70) return 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]';
     if (score >= 50) return 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]';
@@ -184,8 +187,10 @@ function HeroSection({ item }: { item: MediaItem }) {
           </div>
         )}
       </div>
+
       <div className="relative z-10 container mx-auto px-6 md:px-12 w-full">
         <div className="max-w-3xl space-y-6 md:space-y-8 animate-fade-in-up">
+          
           {score > 80 && (
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 backdrop-blur-md">
               <span className="relative flex h-2 w-2">
@@ -197,9 +202,11 @@ function HeroSection({ item }: { item: MediaItem }) {
               </span>
             </div>
           )}
+
           <h1 className="text-4xl md:text-6xl lg:text-8xl font-black leading-[1.1] tracking-tight text-white drop-shadow-2xl text-balance">
             {item.title}
           </h1>
+
           <div className="flex flex-wrap items-center gap-4 text-sm md:text-base font-medium text-slate-300">
             <span className={`font-bold ${getScoreColor(score)}`}>
               {score}% Рейтинг
@@ -215,10 +222,14 @@ function HeroSection({ item }: { item: MediaItem }) {
               4K HDR
             </span>
           </div>
+
           <p className="text-base md:text-lg lg:text-xl text-slate-300/80 line-clamp-3 leading-relaxed max-w-2xl text-pretty">
             {item.overview || "Описание пока не добавлено, но этот проект определенно заслуживает вашего внимания."}
           </p>
-          <div className="flex flex-col sm:flex-row items-start gap-4 pt-4">
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4">
+            
+            {/* Кнопка СМОТРЕТЬ */}
             <Link href={`/${item.mediaType}/${item.id}`} className="w-full sm:w-auto">
               <button className="group relative w-full sm:w-auto bg-white hover:bg-slate-200 text-black px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
                 <div className="absolute inset-0 bg-white/40 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 rounded-xl" />
@@ -228,13 +239,23 @@ function HeroSection({ item }: { item: MediaItem }) {
                 <span className="relative z-10 text-lg">Смотреть</span>
               </button>
             </Link>
-            <button className="group w-full sm:w-auto px-8 py-4 rounded-xl font-bold transition-all duration-300 border border-white/10 bg-white/5 backdrop-blur-xl hover:bg-white/10 hover:border-white/30 text-white flex items-center justify-center gap-3">
-               <svg className="w-6 h-6 text-slate-300 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-               </svg>
-               <span>Подробнее</span>
-            </button>
+
+            {/* В БУДУ СМОТРЕТЬ (Используем полноразмерный компонент, не компактный) */}
+            <WatchlistButton 
+               mediaId={item.id}
+               mediaType={item.mediaType}
+               isInWatchlist={item.isInWatchlist || false}
+               compact={false}
+            />
+
+            {/* В СПИСОК */}
+            <AddToListDropdown 
+                mediaId={item.id}
+                mediaType={item.mediaType}
+                compact={false}
+            />
           </div>
+
         </div>
       </div>
     </section>

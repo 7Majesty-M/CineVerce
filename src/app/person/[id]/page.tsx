@@ -2,13 +2,14 @@ import { getPersonById, getPersonCredits } from '@/lib/tmdb';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+// Импортируем наш новый компонент
+import PersonCreditsGrid from '@/components/PersonCreditsGrid';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PersonPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const personId = params.id;
-
   const [person, credits] = await Promise.all([
     getPersonById(personId),
     getPersonCredits(personId)
@@ -17,11 +18,9 @@ export default async function PersonPage(props: { params: Promise<{ id: string }
   if (!person) notFound();
 
   // --- ФИЛЬТРАЦИЯ ДУБЛИКАТОВ ---
-  // Создаем Set, чтобы запоминать уже добавленные ID
   const seenIds = new Set();
   
   const knownFor = credits.filter(item => {
-    // Уникальный ключ для проверки
     const uniqueKey = `${item.media_type}-${item.id}`;
     
     // Если нет постера ИЛИ мы уже видели этот фильм -> пропускаем
@@ -29,15 +28,14 @@ export default async function PersonPage(props: { params: Promise<{ id: string }
         return false;
     }
     
-    // Запоминаем и оставляем в списке
     seenIds.add(uniqueKey);
     return true;
-  }).slice(0, 24); // Берем топ-24 уникальных
+  }); 
+  // ВАЖНО: Убрали .slice(0, 24). Передаем ВСЕ фильмы в компонент.
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-purple-500/30">
       <Navbar />
-
       <div className="container mx-auto px-6 lg:px-12 py-24 md:py-32">
         
         <Link href="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-8 transition-colors text-sm font-bold">
@@ -103,38 +101,14 @@ export default async function PersonPage(props: { params: Promise<{ id: string }
                 <div>
                     <h3 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
                         <span className="w-1 h-8 bg-blue-500 rounded-full"></span>
-                        Известные работы
+                        Известные работы ({knownFor.length})
                     </h3>
                     
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                        {knownFor.map((item) => (
-                            <Link 
-                                key={`${item.media_type}-${item.id}`} 
-                                href={`/${item.media_type === 'movie' ? 'movie' : 'tv'}/${item.id}`}
-                                className="group block"
-                            >
-                                <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-[#121212] border border-white/10 mb-3 transition-all duration-300 group-hover:scale-105 group-hover:border-blue-500/50 group-hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                                    <img 
-                                        src={`https://image.tmdb.org/t/p/w342${item.poster_path}`} 
-                                        alt={item.title || item.name}
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-yellow-400 border border-white/10">
-                                        ★ {item.vote_average.toFixed(1)}
-                                    </div>
-                                </div>
-                                <h4 className="text-sm font-bold text-slate-200 group-hover:text-white truncate transition-colors">
-                                    {item.title || item.name}
-                                </h4>
-                                <p className="text-xs text-slate-500 truncate">
-                                    {item.character ? `как ${item.character}` : (item.release_date || item.first_air_date)?.split('-')[0]}
-                                </p>
-                            </Link>
-                        ))}
-                    </div>
+                    {/* Вставляем наш клиентский компонент с кнопкой загрузки */}
+                    <PersonCreditsGrid items={knownFor} />
+
                 </div>
             </div>
-
         </div>
       </div>
     </div>
