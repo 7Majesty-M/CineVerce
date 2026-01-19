@@ -1,41 +1,37 @@
-// src/app/movie/[id]/page.tsx
-import { getMovieById } from '../../../lib/tmdb';
+import { getMovieById, getVideos } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
-import { db } from '@/db'; // Импортируем БД
-import { watchlist } from '@/db/schema'; // Импортируем таблицу watchlist
+import { db } from '@/db';
+import { watchlist } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import WatchlistButton from '@/components/WatchlistButton'; // <--- Наш новый компонент
+import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
-import { auth } from '@/auth'; // Твой файл настройки
+import { auth } from '@/auth';
+import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
 
-// Отключаем кэш для актуальности данных
 export const dynamic = 'force-dynamic';
 
 export default async function MoviePage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const movieId = Number(params.id);
   
-  // 1. Получаем данные о фильме и оценках
-  const [movie, userRatings] = await Promise.all([
+  const [movie, userRatings, videos] = await Promise.all([
     getMovieById(params.id),
     getUserRatings(movieId, 'movie'),
+    getVideos(movieId, 'movie'),
   ]);
 
   if (!movie) notFound();
 
-  // 2. Ищем оценку (seasonNumber для фильма всегда null или 0)
-  const movieRating = userRatings.find(r => 
-    r.seasonNumber === null || r.seasonNumber === 0
-  )?.rating || null;
-
+  const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
+  const movieRating = userRatings.find(r => r.seasonNumber === null || r.seasonNumber === 0)?.rating || null;
   const isRated = movieRating !== undefined && movieRating !== null;
   const releaseYear = movie.release_date?.split('-')[0];
-
+  
   const session = await auth();
-const userId = session?.user?.id; // Получаем ID из сессии
-
+  const userId = session?.user?.id;
+  
   let isInWatchlist = false;
   if (userId) {
     const check = await db.select().from(watchlist).where(and(
@@ -47,149 +43,163 @@ const userId = session?.user?.id; // Получаем ID из сессии
   } 
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30 selection:text-cyan-100 font-sans pb-20">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30">
       
-      {/* --- HERO HEADER --- */}
-      <div className="relative w-full h-[70vh] lg:h-[80vh] overflow-hidden">
-        {/* Backdrop Image */}
-        <div className="absolute inset-0">
-          {movie.backdrop_path ? (
-            <div className="relative w-full h-full">
-               <img 
-                 src={`https://image.tmdb.org/t/p/original${movie.backdrop_path}`} 
-                 alt={movie.title} 
-                 className="w-full h-full object-cover opacity-60 scale-105 animate-pulse-slow" 
-               />
-               <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/50 to-transparent" />
-               <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/70 to-transparent" />
-               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-            </div>
-          ) : (
-            <div className="w-full h-full bg-[#121212]" />
-          )}
-        </div>
-
-        {/* Back Button */}
-        <div className="absolute top-8 left-6 md:left-12 z-50">
-           <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
-              <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-              Назад
-           </Link>
-        </div>
-      </div>
-
-      {/* --- CONTENT CONTAINER --- */}
-      <div className="container mx-auto px-6 lg:px-12 relative z-10 -mt-[40vh] md:-mt-[50vh]">
-        <div className="flex flex-col md:flex-row gap-12 items-start">
+      {/* 
+          MOVIE HERO WRAPPER
+          Занимает 85vh экрана
+      */}
+      <MovieHero backdropPath={movie.backdrop_path} videoKey={trailerKey}>
           
-          {/* --- POSTER (Floating) --- */}
-          <div className="w-[280px] md:w-[350px] flex-shrink-0 mx-auto md:mx-0 relative group perspective-1000">
-             <div className="rounded-2xl overflow-hidden shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] transition-transform duration-500 group-hover:scale-[1.02] group-hover:-translate-y-2 group-hover:shadow-cyan-500/20">
-                {movie.poster_path ? (
-                  <img src={`https://image.tmdb.org/t/p/w780${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-600">No Poster</div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-             </div>
-             <div className="absolute inset-0 bg-cyan-500/30 blur-[60px] -z-10 rounded-full opacity-40 group-hover:opacity-60 transition-opacity duration-700"></div>
+          {/* Top Bar */}
+          <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-50">
+             <Link href="/" className="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/20 backdrop-blur-md border border-white/5 hover:bg-white/10 transition-all">
+                <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
+             </Link>
           </div>
 
-          {/* --- INFO COLUMN --- */}
-          <div className="flex-1 pt-4 md:pt-[10vh]">
-             {/* Title & Badge */}
-             <div className="mb-6 fade-in-card" style={{ animationDelay: '0.1s' }}>
-                <div className="flex flex-wrap items-center gap-4 mb-4">
-                   <span className="text-sm font-bold text-cyan-400 tracking-wider uppercase border border-cyan-500/30 px-3 py-1 rounded-full bg-cyan-500/10 backdrop-blur-sm">Movie</span>
-                   
-                   {movie.runtime && movie.runtime > 0 && (
-                     <span className="text-sm font-medium text-slate-400 flex items-center gap-1">
-                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                       {Math.floor(movie.runtime / 60)}ч {movie.runtime % 60}м
-                     </span>
-                   )}
-                </div>
-                
-                <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-none text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/50 mb-4 drop-shadow-xl">
-                  {movie.title}
-                </h1>
-                
-                <div className="flex items-center gap-6 text-lg font-medium text-slate-300">
-                   <span>{releaseYear}</span>
-                   <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
-                   <div className="flex items-center gap-2 text-yellow-400">
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                      <span className="text-white font-bold">{movie.vote_average.toFixed(1)}</span>
-                   </div>
-                </div>
-             </div>
+          {/* Main Content Area */}
+          <div className="container mx-auto px-6 lg:px-12 h-full flex flex-col justify-end pb-16 relative z-10">
+            <div className="flex flex-col lg:flex-row gap-12 lg:items-end">
+              
+              {/* --- POSTER WITH REFLECTION --- */}
+              <div className="hidden lg:block w-[320px] flex-shrink-0 relative group mb-4">
+                 {/* Основной постер */}
+                 <div className="rounded-xl overflow-hidden shadow-[0_0_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] ring-1 ring-white/5">
+                    {movie.poster_path ? (
+                      <img src={`https://image.tmdb.org/t/p/w780${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-600">No Poster</div>
+                    )}
+                    {/* Блик на постере */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none" />
+                 </div>
 
-             {/* Actions */}
-             <div className="flex flex-wrap items-center gap-6 mb-10 fade-in-card relative z-30" style={{ animationDelay: '0.2s' }}>
-                
-                {/* ССЫЛКА НА СТРАНИЦУ ОЦЕНКИ */}
-                <Link 
-                    href={`/movie/${movie.id}/rate`}
-                    className={`group/btn inline-flex items-center gap-3 px-6 py-3 rounded-xl border transition-all duration-300
-                        ${isRated 
-                            ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]' 
-                            : 'bg-white/5 border-white/10 hover:bg-cyan-600 hover:border-cyan-500 hover:shadow-[0_0_25px_rgba(8,145,178,0.4)]'
-                        }
-                    `}
-                >
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors font-black text-sm
-                        ${isRated 
-                            ? 'bg-green-500 text-black shadow-lg' 
-                            : 'bg-white/10 text-slate-300 group-hover/btn:bg-white group-hover/btn:text-cyan-600'
-                        }
-                    `}>
-                        {isRated ? movieRating : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4"/></svg>}
+                 {/* Отражение (Reflection) */}
+                 <div className="absolute -bottom-[102%] left-0 w-full h-full scale-y-[-1] opacity-20 blur-sm pointer-events-none mask-image-gradient">
+                    {movie.poster_path && (
+                        <img src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`} className="w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505] to-transparent" />
+                 </div>
+              </div>
+
+              {/* --- INFO TEXT --- */}
+              <div className="flex-1 pb-2">
+                 
+                 {/* Metadata Tags */}
+                 <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur-md border border-white/10 text-[10px] font-bold tracking-widest uppercase text-white/80">
+                        Movie
+                    </div>
+                    {releaseYear && (
+                        <div className="px-3 py-1 rounded-md bg-transparent border border-white/20 text-[10px] font-bold tracking-widest text-slate-300">
+                            {releaseYear}
+                        </div>
+                    )}
+                    {movie.runtime && (
+                        <div className="text-xs font-medium text-slate-400">
+                            {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
+                        </div>
+                    )}
+                 </div>
+                 
+                 {/* Title */}
+                 <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
+                  {movie.title}
+                 </h1>
+                 
+                 {/* Rating & Short Info */}
+                 <div className="flex items-center gap-6 mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
+                    <div className="flex items-center gap-2">
+                        <span className="text-yellow-400 text-2xl">★</span>
+                        <span className="text-2xl font-bold text-white">{movie.vote_average.toFixed(1)}</span>
+                        <span className="text-sm text-slate-500 font-medium mt-1">/ 10</span>
                     </div>
                     
-                    <span className={`text-sm font-bold uppercase tracking-widest 
-                        ${isRated 
-                            ? 'text-green-400' 
-                            : 'text-slate-300 group-hover/btn:text-white'
-                        }
-                    `}>
-                        {isRated ? `Ваша оценка: ${movieRating}` : 'Оценить фильм'}
-                    </span>
-                </Link>
+                    {movie.genres && (
+                        <div className="hidden md:flex items-center gap-2 text-sm text-slate-400 font-medium">
+                            <span className="w-1 h-1 rounded-full bg-slate-600" />
+                            <span>{movie.genres.slice(0, 3).map((g: any) => g.name).join(', ')}</span>
+                        </div>
+                    )}
+                 </div>
 
-                {/* --- НОВАЯ КНОПКА "В СПИСОК" --- */}
-                <WatchlistButton 
-                    mediaId={movie.id} 
-                    mediaType="movie" 
-                    isInWatchlist={isInWatchlist} 
-                />
-                                <AddToListDropdown 
-    mediaId={movie.id} 
-    mediaType="movie" 
-/>
-             </div>
+                 {/* ACTION BUTTONS ROW */}
+                 <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+                    
+                    {/* КНОПКА PLAY (Главная) */}
+                    {trailerKey && <PlayHeroButton />}
 
-             {/* Overview */}
-             <div className="mb-12 max-w-4xl fade-in-card relative z-20" style={{ animationDelay: '0.3s' }}>
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                  <span className="w-1 h-6 bg-cyan-500 rounded-full"></span>
-                  Сюжет
-                </h3>
-                <p className="text-lg text-slate-300 leading-relaxed font-light">
-                   {movie.overview || "Описание отсутствует."}
-                </p>
-             </div>
+                    {/* Вторичные кнопки (Glass Style) */}
+                    <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                        <Link 
+                            href={`/movie/${movie.id}/rate`} 
+                            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all hover:bg-white/10 flex items-center gap-2
+                                ${isRated ? 'text-green-400' : 'text-slate-300 hover:text-white'}
+                            `}
+                        >
+                            {isRated ? (
+                                <><span>★</span> {movieRating}</>
+                            ) : (
+                                <><span>☆</span> Оценить</>
+                            )}
+                        </Link>
+                        
+                        <div className="w-px h-6 bg-white/10" />
 
-             {/* Genres */}
-             {movie.genres && (
-               <div className="flex flex-wrap gap-2 mb-12 fade-in-card relative z-20" style={{ animationDelay: '0.4s' }}>
-                 {movie.genres.map((genre: any) => (
-                   <span key={genre.id} className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white hover:border-cyan-500/50 transition-colors cursor-default">
-                     {genre.name}
-                   </span>
-                 ))}
-               </div>
-             )}
+                        <div className="scale-90">
+                           <WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} />
+                        </div>
+                        
+                        <div className="w-px h-6 bg-white/10" />
+                        
+                        <div className="scale-90">
+                           <AddToListDropdown mediaId={movie.id} mediaType="movie" />
+                        </div>
+                    </div>
+
+                 </div>
+              </div>
+            </div>
           </div>
+      </MovieHero>
+
+      {/* --- STORYLINE & DETAILS --- */}
+      <div className="container mx-auto px-6 lg:px-12 py-20 relative z-20">
+        <div className="flex flex-col lg:flex-row gap-16">
+            
+            {/* Левая колонка: Описание */}
+            <div className="flex-1">
+                <h3 className="text-2xl font-bold text-white mb-6">Сюжет</h3>
+                <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light mb-10 max-w-3xl">
+                   {movie.overview || "Описание этого фильма отсутствует на данном языке, но мы уверены, что он стоит вашего внимания."}
+                </p>
+                
+                {/* Теги */}
+                <div className="flex flex-wrap gap-2">
+                    {movie.genres?.map((g: any) => (
+                        <span key={g.id} className="px-4 py-2 rounded-lg bg-[#121212] border border-white/5 text-sm font-medium text-slate-400 hover:text-white hover:border-white/20 transition-colors cursor-default">
+                            {g.name}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            {/* Правая колонка: Детали (можно расширить) */}
+            <div className="w-full lg:w-[350px] space-y-8 text-sm">
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Статус</span>
+                    <span className="text-white text-lg font-medium">Выпущен</span>
+                </div>
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Язык оригинала</span>
+                    <span className="text-white text-lg font-medium uppercase">{movie.original_language}</span>
+                </div>
+                {/* Сюда можно добавить бюджет, сборы и т.д. */}
+            </div>
+
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { reviews, follows, users, lists, listMembers, listItems, watchlist, matc
 import { auth } from '@/auth'; // NextAuth
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
-import { getMovieById, searchMulti } from '@/lib/tmdb';
+import { getMovieById, searchMulti, getPopularMovies, getPopularTVShows } from '@/lib/tmdb';
 
 // --- 1. РЕЙТИНГИ (Оценки) ---
 
@@ -332,3 +332,46 @@ export async function checkSessionMatches(sessionId: string) {
     return { success: false, match: null };
   } catch (e) { return { success: false }; }
 }
+
+const ITEMS_PER_PAGE = 24; // <-- ТВОЕ ЧИСЛО
+
+// Вспомогательная функция для "умной" нарезки
+async function getPaginatedBatch(page: number, fetchFn: (p: number) => Promise<any[]>) {
+  // 1. Считаем глобальные индексы, которые нам нужны
+  // Например, для 1-й страницы: нужны элементы 0...24
+  // Для 2-й страницы: нужны элементы 24...48
+  const startGlobalIndex = (page - 1) * ITEMS_PER_PAGE;
+  const endGlobalIndex = startGlobalIndex + ITEMS_PER_PAGE;
+
+  // 2. Считаем, на каких страницах TMDB (по 20 шт) лежат эти данные
+  const startTmdbPage = Math.floor(startGlobalIndex / 20) + 1;
+  const endTmdbPage = Math.floor((endGlobalIndex - 1) / 20) + 1;
+
+  // 3. Загружаем все нужные страницы TMDB параллельно
+  const promises = [];
+  for (let i = startTmdbPage; i <= endTmdbPage; i++) {
+    promises.push(fetchFn(i));
+  }
+  
+  const results = await Promise.all(promises);
+  
+  // 4. Склеиваем всё в один массив
+  const flattenedItems = results.flat();
+
+  // 5. Вырезаем только нужные 24 штуки
+  // Нам нужно понять смещение относительно первой загруженной страницы TMDB
+  const globalStartIndexOwLoadedChunk = (startTmdbPage - 1) * 20;
+  const localStartIndex = startGlobalIndex - globalStartIndexOwLoadedChunk;
+  
+  return flattenedItems.slice(localStartIndex, localStartIndex + ITEMS_PER_PAGE);
+}
+
+// --- 7. ОБНОВЛЕННЫЕ ACTIONS ---
+
+export async function fetchMoreMovies(page: number) {
+  return await getPaginatedBatch(page, getPopularMovies);
+}
+
+export async function fetchMoreTVShows(page: number) {
+  return await getPaginatedBatch(page, getPopularTVShows);
+  }
