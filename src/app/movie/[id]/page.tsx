@@ -185,26 +185,48 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
             </div>
 
             {/* RIGHT COLUMN: Details */}
-            <div className="w-full lg:w-[350px] space-y-8 text-sm">
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Статус</span>
-                    <span className="text-white text-lg font-medium">Выпущен</span>
-                </div>
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Язык оригинала</span>
-                    <span className="text-white text-lg font-medium uppercase">{movie.original_language}</span>
-                </div>
-                <div>
-                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Жанры</span>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {movie.genres?.map((g: any) => (
-                            <span key={g.id} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-slate-300">
-                                {g.name}
-                            </span>
-                        ))}
+            {/* RIGHT COLUMN: Details (Compact Sticky Card) */}
+            <div className="w-full lg:w-[300px] flex-shrink-0">
+                <div className="lg:sticky lg:top-24 space-y-6">
+                    
+                    {/* INFO CARD */}
+                    <div className="bg-[#121212] border border-white/10 rounded-2xl p-5 shadow-xl overflow-hidden">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+                            Инфо
+                        </h4>
+                        
+                        <div className="flex flex-col">
+                            {/* Строка 1: Статус */}
+                            <div className="flex justify-between items-center py-3 border-b border-white/5">
+                                <span className="text-sm text-slate-400 font-medium">Статус</span>
+                                <span className="text-sm font-bold text-white">Выпущен</span>
+                            </div>
+
+                            {/* Строка 2: Язык */}
+                            <div className="flex justify-between items-center py-3 border-b border-white/5">
+                                <span className="text-sm text-slate-400 font-medium">Оригинал</span>
+                                <span className="text-sm font-bold text-white uppercase bg-white/10 px-2 py-0.5 rounded text-[10px]">
+                                    {movie.original_language}
+                                </span>
+                            </div>
+
+                            {/* Блок: Жанры */}
+                            <div className="pt-4">
+                                <span className="text-xs text-slate-500 mb-3 block font-bold uppercase tracking-wider">Жанры</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {movie.genres?.map((g: any) => (
+                                        <span key={g.id} className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[11px] font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-default">
+                                            {g.name}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
             </div>
+
 
         </div>
       </div>

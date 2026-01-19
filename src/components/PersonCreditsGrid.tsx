@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import WatchlistButton from '@/components/WatchlistButton';
+import AddToListDropdown from '@/components/AddToListDropdown';
 
-// Типизация (можно вынести в общий файл типов, но для простоты оставим тут)
 interface CreditItem {
   id: number;
   media_type: string;
@@ -24,42 +25,82 @@ export default function PersonCreditsGrid({ items }: { items: CreditItem[] }) {
   const hasMore = displayCount < items.length;
 
   const handleLoadMore = () => {
-    // Можно увеличивать порциями (например +24) или показать сразу все
-    // setDisplayCount(prev => prev + 24); 
-    setDisplayCount(items.length); // Показываем все сразу
+    setDisplayCount(items.length);
   };
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      {/* 
+          МАКСИМАЛЬНЫЙ РАЗМЕР:
+          - grid-cols-2 (мобильные и планшеты) -> 2 карточки в ряд
+          - lg:grid-cols-3 (ноутбуки и десктопы) -> ВСЕГО 3 карточки в ряд!
+          
+          Карточки будут очень широкими и высокими.
+      */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-14">
         {visibleItems.map((item) => (
           <Link
             key={`${item.media_type}-${item.id}`}
             href={`/${item.media_type === 'movie' ? 'movie' : 'tv'}/${item.id}`}
             className="group block relative"
           >
-            <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-[#121212] border border-white/10 mb-3 transition-all duration-300 group-hover:scale-105 group-hover:border-blue-500/50 group-hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+            {/* Постер */}
+            <div className="relative aspect-[2/3] rounded-[2rem] overflow-hidden bg-[#121212] border border-white/10 mb-6 transition-all duration-500 group-hover:border-blue-500/50 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.25)] group-hover:-translate-y-3">
+              
               {item.poster_path ? (
                  <img
-                    src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
+                    // Используем original или w780 для максимальной четкости
+                    src={`https://image.tmdb.org/t/p/w780${item.poster_path}`} 
                     alt={item.title || item.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover rounded-[2rem]"
                     loading="lazy"
                  />
               ) : (
-                 <div className="w-full h-full flex items-center justify-center text-slate-700">No Image</div>
+                 <div className="w-full h-full flex items-center justify-center text-slate-700 rounded-[2rem]">No Image</div>
               )}
 
-              <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-yellow-400 border border-white/10">
+              {/* Рейтинг (Увеличен) */}
+              <div className="absolute top-5 right-5 px-4 py-1.5 rounded-xl bg-black/60 backdrop-blur-xl text-base font-bold text-yellow-400 border border-white/10 z-20 shadow-xl">
                 ★ {item.vote_average.toFixed(1)}
               </div>
+
+              {/* ОВЕРЛЕЙ С КНОПКАМИ */}
+              <div className="absolute inset-0 rounded-[2rem] bg-black/40 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-6 z-30">
+                  
+                  {/* В список */}
+                  <div 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      className="relative z-50 transform translate-y-6 group-hover:translate-y-0 transition-transform duration-300 delay-75 scale-110 origin-bottom-left"
+                  >
+                      <AddToListDropdown 
+                          mediaId={item.id} 
+                          mediaType={item.media_type as 'movie' | 'tv'} 
+                          compact={true} 
+                      />
+                  </div>
+
+                  {/* Буду смотреть */}
+                  <div 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      className="relative z-40 transform translate-y-6 group-hover:translate-y-0 transition-transform duration-300 delay-100 scale-110 origin-bottom-right"
+                  >
+                      <WatchlistButton 
+                          mediaId={item.id} 
+                          mediaType={item.media_type as 'movie' | 'tv'} 
+                          isInWatchlist={false} 
+                          compact={true} 
+                      />
+                  </div>
+              </div>
+
             </div>
 
-            <h4 className="text-sm font-bold text-slate-200 group-hover:text-white truncate transition-colors">
+            {/* Заголовок (Очень крупный) */}
+            <h4 className="text-xl md:text-2xl font-bold text-slate-200 group-hover:text-white truncate transition-colors px-2 leading-tight">
               {item.title || item.name}
             </h4>
 
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-base text-slate-500 truncate px-2 mt-2 font-medium">
               {item.character
                 ? `как ${item.character}`
                 : (item.release_date || item.first_air_date)?.split('-')[0]}
@@ -70,16 +111,16 @@ export default function PersonCreditsGrid({ items }: { items: CreditItem[] }) {
 
       {/* КНОПКА ЗАГРУЗИТЬ ЕЩЕ */}
       {hasMore && (
-        <div className="mt-12 flex justify-center">
+        <div className="mt-24 flex justify-center">
           <button
             onClick={handleLoadMore}
-            className="group relative px-8 py-3 rounded-full font-bold text-sm bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 active:scale-95 flex items-center gap-2"
+            className="group relative px-14 py-6 rounded-full font-bold text-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 active:scale-95 flex items-center gap-4 shadow-2xl"
           >
             <span>Показать все работы</span>
-            <span className="bg-white/10 px-2 py-0.5 rounded text-xs text-slate-300">
+            <span className="bg-white/10 px-4 py-1 rounded-full text-sm text-slate-300 font-mono">
                 {items.length - displayCount}
             </span>
-            <svg className="w-4 h-4 group-hover:translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-6 h-6 group-hover:translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
