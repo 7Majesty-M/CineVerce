@@ -1,6 +1,6 @@
 // src/app/tv/[id]/page.tsx
 
-import { getTVShowById, getVideos } from '../../../lib/tmdb';
+import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; 
 import { watchlist } from '@/db/schema'; 
@@ -11,6 +11,8 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
+import CastList from '@/components/CastList'; // Компонент актеров
+import SimilarList from '@/components/SimilarList'; // Компонент рекомендаций
 
 export const dynamic = 'force-dynamic';
 
@@ -18,19 +20,21 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
   const params = await props.params;
   const showId = Number(params.id);
 
-  // 1. Загружаем данные
-  const [show, userRatings, videos] = await Promise.all([
+  // 1. Загружаем ВСЕ данные (Шоу, Рейтинги, Видео, Актеры, Похожие)
+  const [show, userRatings, videos, cast, similar] = await Promise.all([
     getTVShowById(params.id),
     getUserRatings(showId, 'tv'),
     getVideos(showId, 'tv'),
+    getCredits(showId, 'tv'),
+    getRecommendations(showId, 'tv'),
   ]);
 
   if (!show) notFound();
 
-  // 2. Ищем трейлер
+  // 2. Трейлер
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
 
-  // 3. Средний рейтинг пользователя
+  // 3. Расчет среднего рейтинга
   const ratedSeasons = userRatings.filter(r => r.seasonNumber !== null && r.seasonNumber > 0);
   let averageUserRating: string | null = null;
   const hasUserRated = ratedSeasons.length > 0;
@@ -41,7 +45,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
     averageUserRating = Number.isInteger(avg) ? avg.toString() : avg.toFixed(1);
   }
 
-  // Карта оценок для сезонов
+  // Карта оценок для отображения на карточках сезонов
   const seasonRatingsMap = new Map<number, number>();
   userRatings.forEach(r => { 
       if (r.seasonNumber !== null) seasonRatingsMap.set(r.seasonNumber, r.rating); 
@@ -65,7 +69,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-pink-500/30">
       
-      {/* --- HERO SECTION --- */}
+      {/* --- HERO SECTION (PREMIUM) --- */}
       <MovieHero backdropPath={show.backdrop_path} videoKey={trailerKey}>
           
           <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-50">
@@ -78,7 +82,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
           <div className="container mx-auto px-6 lg:px-12 h-full flex flex-col justify-end pb-16 relative z-10">
             <div className="flex flex-col lg:flex-row gap-12 lg:items-end">
               
-              {/* Poster */}
+              {/* Poster + Reflection */}
               <div className="hidden lg:block w-[320px] flex-shrink-0 relative group mb-4">
                  <div className="rounded-xl overflow-hidden shadow-[0_0_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] ring-1 ring-white/5 transition-transform duration-500 group-hover:scale-[1.02] group-hover:-translate-y-2 group-hover:shadow-pink-500/20">
                     {show.poster_path ? (
@@ -96,7 +100,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
               </div>
 
-              {/* Info */}
+              {/* Info Column */}
               <div className="flex-1 pb-2">
                  <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     {(show as any).networks && (show as any).networks[0] && (
@@ -125,6 +129,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                     )}
                  </div>
 
+                 {/* Actions */}
                  <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
                     {trailerKey && <PlayHeroButton />}
                     <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
@@ -142,28 +147,56 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
           </div>
       </MovieHero>
 
-      {/* --- CONTENT & SEASONS --- */}
+      {/* --- BODY CONTENT --- */}
       <div className="container mx-auto px-6 lg:px-12 py-20 relative z-20">
         
-        {/* Story & Genres */}
-        <div className="max-w-4xl mb-20">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3"><span className="w-1 h-8 bg-pink-500 rounded-full"></span>Сюжет</h3>
-            <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light mb-8">{show.overview || "Описание отсутствует."}</p>
-            <div className="flex flex-wrap gap-2">
-                {show.genres?.map((g: any) => (
-                    <span key={g.id} className="px-4 py-2 rounded-lg bg-[#121212] border border-white/5 text-sm font-medium text-slate-400 hover:text-white hover:border-pink-500/30 transition-colors cursor-default">{g.name}</span>
-                ))}
+        {/* TOP: Story, Cast, Similar vs Details */}
+        <div className="flex flex-col lg:flex-row gap-16 mb-24">
+            
+            {/* Left Content */}
+            <div className="flex-1 min-w-0">
+                <div className="mb-16">
+                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3"><span className="w-1 h-8 bg-pink-500 rounded-full"></span>Сюжет</h3>
+                    <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light">{show.overview || "Описание отсутствует."}</p>
+                </div>
+
+                {/* Актеры */}
+                <CastList cast={cast} />
+
+                {/* Рекомендации */}
+                <SimilarList items={similar} type="tv" />
+            </div>
+
+            {/* Right Details */}
+            <div className="w-full lg:w-[350px] space-y-8 text-sm">
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Статус</span>
+                    <span className="text-white text-lg font-medium">{show.in_production ? 'Выходит' : 'Завершен'}</span>
+                </div>
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Оригинал</span>
+                    <span className="text-white text-lg font-medium uppercase">{show.original_language}</span>
+                </div>
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Жанры</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {show.genres?.map((g: any) => (
+                            <span key={g.id} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-slate-300">{g.name}</span>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
 
-        {/* --- SEASONS GRID (Wide Layout) --- */}
-        <div className="fade-in-card relative z-10">
-           <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+        {/* --- SEASONS GRID (WIDE FULL WIDTH) --- */}
+        <div className="fade-in-card relative z-10 border-t border-white/10 pt-16">
+           <div className="flex items-center justify-between mb-10">
               <h2 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-500">Сезоны</h2>
-              <span className="text-slate-500 font-bold">{show.number_of_seasons} Всего</span>
+              <div className="px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-400 font-bold text-sm">
+                 {show.number_of_seasons} Всего
+              </div>
            </div>
            
-           {/* СЕТКА (КАК БЫЛО РАНЬШЕ) */}
            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {show.seasons.map((season) => {
                  const seasonRating = seasonRatingsMap.get(season.season_number);
@@ -179,6 +212,8 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                        <div className="w-[140px] flex-shrink-0 relative overflow-hidden rounded-l-2xl">
                           {season.poster_path ? (
                              <img src={`https://image.tmdb.org/t/p/w342${season.poster_path}`} alt={season.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                          ) : show.poster_path ? (
+                             <img src={`https://image.tmdb.org/t/p/w342${show.poster_path}`} alt={show.name} className="w-full h-full object-cover opacity-50 grayscale" />
                           ) : (
                              <div className="w-full h-full bg-[#151515] flex items-center justify-center text-xs text-slate-700">No Image</div>
                           )}

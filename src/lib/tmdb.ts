@@ -193,3 +193,55 @@ export async function getVideos(id: number, type: 'movie' | 'tv'): Promise<Video
     return [];
   }
 }
+// ... (твой существующий код)
+
+// --- НОВЫЕ ТИПЫ ---
+
+export interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_path: string | null;
+}
+
+export interface Recommendation {
+  id: number;
+  title?: string; // У фильмов title
+  name?: string;  // У сериалов name
+  poster_path: string | null;
+  vote_average: number;
+  media_type?: 'movie' | 'tv'; // API рекомендаций иногда не возвращает тип явно, будем передавать
+}
+
+// --- НОВЫЕ ФУНКЦИИ ---
+
+// 1. Актеры (Cast)
+export async function getCredits(id: number, type: 'movie' | 'tv'): Promise<CastMember[]> {
+  if (!API_KEY) return [];
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}/${type}/${id}/credits?api_key=${API_KEY}&language=${LANG}`,
+      { next: { revalidate: 3600 } }
+    );
+    const data = await res.json();
+    // Берем только первых 15 актеров
+    return (data.cast || []).slice(0, 15);
+  } catch (error) {
+    return [];
+  }
+}
+
+// 2. Рекомендации (Similar)
+export async function getRecommendations(id: number, type: 'movie' | 'tv'): Promise<Recommendation[]> {
+  if (!API_KEY) return [];
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}/${type}/${id}/recommendations?api_key=${API_KEY}&language=${LANG}&page=1`,
+      { next: { revalidate: 3600 } }
+    );
+    const data = await res.json();
+    return (data.results || []).slice(0, 10);
+  } catch (error) {
+    return [];
+  }
+}

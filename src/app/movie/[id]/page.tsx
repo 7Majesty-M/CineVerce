@@ -1,4 +1,6 @@
-import { getMovieById, getVideos } from '../../../lib/tmdb';
+// src/app/movie/[id]/page.tsx
+
+import { getMovieById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb'; // Импортируем всё необходимое
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db';
 import { watchlist } from '@/db/schema';
@@ -9,6 +11,8 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
+import CastList from '@/components/CastList'; // <-- Актеры
+import SimilarList from '@/components/SimilarList'; // <-- Рекомендации
 
 export const dynamic = 'force-dynamic';
 
@@ -16,10 +20,13 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   const params = await props.params;
   const movieId = Number(params.id);
   
-  const [movie, userRatings, videos] = await Promise.all([
+  // 1. ЗАГРУЖАЕМ ВСЁ (Фильм, Рейтинги, Видео, Актеры, Похожие)
+  const [movie, userRatings, videos, cast, similar] = await Promise.all([
     getMovieById(params.id),
     getUserRatings(movieId, 'movie'),
     getVideos(movieId, 'movie'),
+    getCredits(movieId, 'movie'),       // <-- Загружаем актеров
+    getRecommendations(movieId, 'movie') // <-- Загружаем похожие
   ]);
 
   if (!movie) notFound();
@@ -45,10 +52,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30">
       
-      {/* 
-          MOVIE HERO WRAPPER
-          Занимает 85vh экрана
-      */}
+      {/* --- MOVIE HERO WRAPPER --- */}
       <MovieHero backdropPath={movie.backdrop_path} videoKey={trailerKey}>
           
           {/* Top Bar */}
@@ -65,18 +69,15 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
               
               {/* --- POSTER WITH REFLECTION --- */}
               <div className="hidden lg:block w-[320px] flex-shrink-0 relative group mb-4">
-                 {/* Основной постер */}
-                 <div className="rounded-xl overflow-hidden shadow-[0_0_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] ring-1 ring-white/5">
+                 <div className="rounded-xl overflow-hidden shadow-[0_0_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 aspect-[2/3] relative z-20 bg-[#121212] ring-1 ring-white/5 transition-transform duration-500 group-hover:scale-[1.02] group-hover:-translate-y-2 group-hover:shadow-red-500/20">
                     {movie.poster_path ? (
                       <img src={`https://image.tmdb.org/t/p/w780${movie.poster_path}`} alt={movie.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-600">No Poster</div>
                     )}
-                    {/* Блик на постере */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none" />
                  </div>
-
-                 {/* Отражение (Reflection) */}
+                 {/* Reflection */}
                  <div className="absolute -bottom-[102%] left-0 w-full h-full scale-y-[-1] opacity-20 blur-sm pointer-events-none mask-image-gradient">
                     {movie.poster_path && (
                         <img src={`https://image.tmdb.org/t/p/w300${movie.poster_path}`} className="w-full h-full object-cover" />
@@ -88,7 +89,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
               {/* --- INFO TEXT --- */}
               <div className="flex-1 pb-2">
                  
-                 {/* Metadata Tags */}
+                 {/* Metadata */}
                  <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur-md border border-white/10 text-[10px] font-bold tracking-widest uppercase text-white/80">
                         Movie
@@ -110,14 +111,13 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                   {movie.title}
                  </h1>
                  
-                 {/* Rating & Short Info */}
+                 {/* Rating */}
                  <div className="flex items-center gap-6 mb-10 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
                     <div className="flex items-center gap-2">
                         <span className="text-yellow-400 text-2xl">★</span>
                         <span className="text-2xl font-bold text-white">{movie.vote_average.toFixed(1)}</span>
                         <span className="text-sm text-slate-500 font-medium mt-1">/ 10</span>
                     </div>
-                    
                     {movie.genres && (
                         <div className="hidden md:flex items-center gap-2 text-sm text-slate-400 font-medium">
                             <span className="w-1 h-1 rounded-full bg-slate-600" />
@@ -126,13 +126,13 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     )}
                  </div>
 
-                 {/* ACTION BUTTONS ROW */}
+                 {/* ACTION BUTTONS */}
                  <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
                     
-                    {/* КНОПКА PLAY (Главная) */}
+                    {/* КНОПКА PLAY */}
                     {trailerKey && <PlayHeroButton />}
-
-                    {/* Вторичные кнопки (Glass Style) */}
+                    
+                    {/* КНОПКИ ДЕЙСТВИЙ */}
                     <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                         <Link 
                             href={`/movie/${movie.id}/rate`} 
@@ -148,46 +148,41 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                         </Link>
                         
                         <div className="w-px h-6 bg-white/10" />
-
-                        <div className="scale-90">
-                           <WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} />
-                        </div>
-                        
+                        <div className="scale-90"><WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} /></div>
                         <div className="w-px h-6 bg-white/10" />
-                        
-                        <div className="scale-90">
-                           <AddToListDropdown mediaId={movie.id} mediaType="movie" />
-                        </div>
+                        <div className="scale-90"><AddToListDropdown mediaId={movie.id} mediaType="movie" /></div>
                     </div>
-
                  </div>
               </div>
             </div>
           </div>
       </MovieHero>
 
-      {/* --- STORYLINE & DETAILS --- */}
+      {/* --- CONTENT BELOW HERO --- */}
       <div className="container mx-auto px-6 lg:px-12 py-20 relative z-20">
         <div className="flex flex-col lg:flex-row gap-16">
             
-            {/* Левая колонка: Описание */}
-            <div className="flex-1">
-                <h3 className="text-2xl font-bold text-white mb-6">Сюжет</h3>
-                <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light mb-10 max-w-3xl">
-                   {movie.overview || "Описание этого фильма отсутствует на данном языке, но мы уверены, что он стоит вашего внимания."}
-                </p>
-                
-                {/* Теги */}
-                <div className="flex flex-wrap gap-2">
-                    {movie.genres?.map((g: any) => (
-                        <span key={g.id} className="px-4 py-2 rounded-lg bg-[#121212] border border-white/5 text-sm font-medium text-slate-400 hover:text-white hover:border-white/20 transition-colors cursor-default">
-                            {g.name}
-                        </span>
-                    ))}
+            {/* LEFT COLUMN: Story + Cast + Similar */}
+            <div className="flex-1 min-w-0">
+                {/* Storyline */}
+                <div className="mb-16">
+                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                        <span className="w-1 h-8 bg-red-500 rounded-full"></span>
+                        Сюжет
+                    </h3>
+                    <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light">
+                       {movie.overview || "Описание отсутствует."}
+                    </p>
                 </div>
+
+                {/* --- АКТЕРЫ (Новое) --- */}
+                <CastList cast={cast} />
+
+                {/* --- ПОХОЖИЕ (Новое) --- */}
+                <SimilarList items={similar} type="movie" />
             </div>
 
-            {/* Правая колонка: Детали (можно расширить) */}
+            {/* RIGHT COLUMN: Details */}
             <div className="w-full lg:w-[350px] space-y-8 text-sm">
                 <div>
                     <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Статус</span>
@@ -197,7 +192,16 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Язык оригинала</span>
                     <span className="text-white text-lg font-medium uppercase">{movie.original_language}</span>
                 </div>
-                {/* Сюда можно добавить бюджет, сборы и т.д. */}
+                <div>
+                    <span className="block text-slate-500 mb-1 font-bold uppercase tracking-wider text-xs">Жанры</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {movie.genres?.map((g: any) => (
+                            <span key={g.id} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-medium text-slate-300">
+                                {g.name}
+                            </span>
+                        ))}
+                    </div>
+                </div>
             </div>
 
         </div>
