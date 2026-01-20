@@ -11,8 +11,10 @@ import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
-import CastList from '@/components/CastList'; // Актеры
-import SimilarList from '@/components/SimilarList'; // Рекомендации
+import CastList from '@/components/CastList'; 
+import SimilarList from '@/components/SimilarList';
+import Navbar from '@/components/Navbar'; 
+
 // --- ТИПИЗАЦИЯ ДЛЯ РАСШИРЕННЫХ ДАННЫХ ---
 interface ExtendedMovie {
   id: number;
@@ -28,7 +30,6 @@ interface ExtendedMovie {
   genres?: { id: number; name: string }[];
 }
 
-// Хелпер для денег ($1,000,000)
 const formatMoney = (amount: number) => {
   if (!amount) return '-';
   return new Intl.NumberFormat('en-US', {
@@ -44,7 +45,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   const params = await props.params;
   const movieId = Number(params.id);
   
-  // 1. ЗАГРУЖАЕМ ВСЁ (Фильм, Рейтинг, Видео, Актеры, Похожие)
   const [movie, userRatings, videos, cast, similar] = await Promise.all([
     getMovieById(params.id),
     getUserRatings(movieId, 'movie'),
@@ -55,16 +55,11 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
 
   if (!movie) notFound();
 
-  // Трейлер
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
-  
-  // Рейтинг
   const movieRating = userRatings.find(r => r.seasonNumber === null || r.seasonNumber === 0)?.rating || null;
   const isRated = movieRating !== undefined && movieRating !== null;
-  
   const releaseYear = movie.release_date?.split('-')[0];
   
-  // Watchlist
   const session = await auth();
   const userId = session?.user?.id;
   
@@ -84,10 +79,18 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
       {/* --- MOVIE HERO WRAPPER --- */}
       <MovieHero backdropPath={movie.backdrop_path} videoKey={trailerKey}>
           
-          {/* Top Bar */}
-          <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-50">
-             <Link href="/" className="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/20 backdrop-blur-md border border-white/5 hover:bg-white/10 transition-all">
-                <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          {/* 1. NAVBAR */}
+          <div className="absolute top-0 left-0 w-full z-50">
+             <Navbar />
+          </div>
+
+          {/* 2. КНОПКА НАЗАД (НОВОЕ) */}
+          <div className="absolute top-24 left-0 w-full px-6 lg:px-12 z-40">
+             <Link 
+                href="/" 
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-x-1 group"
+             >
+                <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
              </Link>
           </div>
@@ -119,46 +122,37 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
               <div className="flex-1 pb-2">
                  
                  {/* Metadata */}
-<div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
-
-    {/* 1. BADGE: Тип медиа */}
-    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
-        Movie
-    </div>
-
-    {/* Разделитель */}
-    <div className="w-px h-4 bg-white/20" />
-
-    {/* 2. BADGE: Год выхода */}
-    {releaseYear && (
-        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
-            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
-                {releaseYear}
-            </span>
-        </div>
-    )}
-
-    {/* 3. INFO: Длительность (СДЕЛАЛ ЯРЧЕ) */}
-    {movie.runtime && (
-        <div className="flex items-center gap-1.5">
-            {/* Иконка: стала светлее (text-slate-200) */}
-            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            
-            {/* Текст: стал почти белым (text-slate-100) и жирнее (font-semibold) */}
-            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
-                {Math.floor(movie.runtime / 60)}ч {movie.runtime % 60}м
-            </span>
-        </div>
-    )}
-
-    {/* Бонус: Качество */}
-    <div className="hidden sm:flex items-center justify-center px-1.5 py-0.5 rounded border border-white/20 text-[9px] font-bold text-slate-300 uppercase tracking-wider ml-auto sm:ml-0">
-        4K HDR
-    </div>
-
-</div>
+                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
+                    {/* 1. BADGE: Тип медиа */}
+                    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+                        Movie
+                    </div>
+                    {/* Разделитель */}
+                    <div className="w-px h-4 bg-white/20" />
+                    {/* 2. BADGE: Год выхода */}
+                    {releaseYear && (
+                        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
+                            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
+                                {releaseYear}
+                            </span>
+                        </div>
+                    )}
+                    {/* 3. INFO: Длительность */}
+                    {movie.runtime && (
+                        <div className="flex items-center gap-1.5">
+                            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
+                                {Math.floor(movie.runtime / 60)}ч {movie.runtime % 60}м
+                            </span>
+                        </div>
+                    )}
+                    {/* Бонус: Качество */}
+                    <div className="hidden sm:flex items-center justify-center px-1.5 py-0.5 rounded border border-white/20 text-[9px] font-bold text-slate-300 uppercase tracking-wider ml-auto sm:ml-0">
+                        4K HDR
+                    </div>
+                 </div>
       
                  {/* Title */}
                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
@@ -233,7 +227,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                 <SimilarList items={similar} type="movie" />
             </div>
 
-            {/* RIGHT COLUMN: Details (Compact Sticky Card) */}
             {/* RIGHT COLUMN: Details (Extended Sticky Card) */}
             <div className="w-full lg:w-[320px] flex-shrink-0">
                 <div className="lg:sticky lg:top-24 space-y-6">
@@ -245,14 +238,13 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                             <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-slate-400">Info</span>
                         </h4>
                         
-                        {/* Приводим тип movie к расширенному интерфейсу, чтобы убрать ошибки TS */}
                         {(() => {
                             const details = movie as unknown as ExtendedMovie;
                             
                             return (
                                 <div className="flex flex-col gap-5">
                                     
-                                    {/* 1. Оригинальное название (если отличается) */}
+                                    {/* 1. Оригинальное название */}
                                     {details.original_title && (movie as any).title !== details.original_title && (
                                         <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинальное название</span>
@@ -276,7 +268,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                         </div>
                                     </div>
 
-                                    {/* 3. Финансы (Бюджет и Сборы) */}
+                                    {/* 3. Финансы */}
                                     {((details.budget && details.budget > 0) || (details.revenue && details.revenue > 0)) && (
                                         <div className="flex flex-col gap-3 border-b border-white/5 pb-3">
                                             {details.budget && details.budget > 0 ? (
@@ -294,7 +286,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                         </div>
                                     )}
 
-                                    {/* 4. Производство (Компании) */}
+                                    {/* 4. Производство */}
                                     {details.production_companies && details.production_companies.length > 0 && (
                                         <div className="border-b border-white/5 pb-3">
                                             <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Производство</span>
@@ -323,7 +315,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                         </div>
                                     )}
 
-                                    {/* 6. Ссылки (Homepage / IMDB) */}
+                                    {/* 6. Ссылки */}
                                     {(details.homepage || details.imdb_id) && (
                                         <div className="grid grid-cols-2 gap-3 pt-1">
                                             {details.homepage && (
@@ -351,7 +343,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                         </div>
                                     )}
 
-                                    {/* 7. Жанры (в самом низу) */}
+                                    {/* 7. Жанры */}
                                     <div className="pt-2">
                                         <div className="flex flex-wrap gap-2">
                                             {details.genres?.map((g) => (
@@ -361,12 +353,10 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             ))}
                                         </div>
                                     </div>
-
                                 </div>
                             );
                         })()}
                     </div>
-
                 </div>
             </div>
         </div>

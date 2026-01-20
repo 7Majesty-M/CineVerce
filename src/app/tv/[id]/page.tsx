@@ -1,3 +1,5 @@
+// src/app/tv/[id]/page.tsx
+
 import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; 
@@ -11,6 +13,7 @@ import { auth } from '@/auth';
 import MovieHero, { PlayHeroButton } from '@/components/MovieHero';
 import CastList from '@/components/CastList'; 
 import SimilarList from '@/components/SimilarList'; 
+import Navbar from '@/components/Navbar';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +37,7 @@ interface ExtendedTVShow {
 export default async function TVShowPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const showId = Number(params.id);
-
+  
   const [show, userRatings, videos, cast, similar] = await Promise.all([
     getTVShowById(params.id),
     getUserRatings(showId, 'tv'),
@@ -67,7 +70,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
   });
 
   const releaseYear = show.first_air_date?.split('-')[0];
-
+  
   // Watchlist
    const session = await auth(); 
    const userId = session?.user?.id; 
@@ -87,9 +90,18 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
       {/* --- HERO SECTION --- */}
       <MovieHero backdropPath={show.backdrop_path} videoKey={trailerKey}>
           
-          <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-50">
-             <Link href="/" className="group flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/20 backdrop-blur-md border border-white/5 hover:bg-white/10 transition-all">
-                <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          {/* 1. NAVBAR (Сверху) */}
+          <div className="absolute top-0 left-0 w-full z-50">
+             <Navbar />
+          </div>
+
+          {/* 2. КНОПКА НАЗАД (Чуть ниже навбара) */}
+          <div className="absolute top-24 left-0 w-full px-6 lg:px-12 z-40">
+             <Link 
+                href="/" 
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-x-1 group"
+             >
+                <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
              </Link>
           </div>
@@ -117,55 +129,64 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
 
               {/* Info */}
               <div className="flex-1 pb-2">
-<div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
-    
-    {/* 1. NETWORK LOGO (Первым делом - студия) */}
-    {details.networks && details.networks[0] && (
-        <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex items-center justify-center h-6 sm:h-7 opacity-90 hover:opacity-100 transition-opacity">
-                <img 
-                    src={`https://image.tmdb.org/t/p/w200${details.networks[0].logo_path}`} 
-                    alt={details.networks[0].name} 
-                    className="h-full w-auto object-contain filter brightness-0 invert drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" 
-                />
-            </div>
-            {/* Разделитель после лого */}
-            <div className="w-px h-4 bg-white/20" />
-        </div>
-    )}
+                 
+                 {/* METADATA BAR */}
+                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
+                    
+                    {/* NETWORK LOGO */}
+                    {details.networks && details.networks[0] && (
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="flex items-center justify-center h-6 sm:h-7 opacity-90 hover:opacity-100 transition-opacity">
+                                <img 
+                                    src={`https://image.tmdb.org/t/p/w200${details.networks[0].logo_path}`} 
+                                    alt={details.networks[0].name} 
+                                    className="h-full w-auto object-contain filter brightness-0 invert drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" 
+                                />
+                            </div>
+                            <div className="w-px h-4 bg-white/20" />
+                        </div>
+                    )}
 
-    {/* 2. BADGE: TV Series */}
-    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
-        TV Series
-    </div>
+                    {/* BADGE */}
+                    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+                        TV Series
+                    </div>
+                    <div className="w-px h-4 bg-white/20" />
 
-    {/* Разделитель */}
-    <div className="w-px h-4 bg-white/20" />
+                    {/* YEAR */}
+                    {releaseYear && (
+                        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
+                            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
+                                {releaseYear}
+                            </span>
+                        </div>
+                    )}
 
-    {/* 3. YEAR: Год выхода */}
-    {releaseYear && (
-        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
-            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
-                {releaseYear}
-            </span>
-        </div>
-    )}
+                    {/* SEASONS */}
+                    {show.number_of_seasons && (
+                        <div className="flex items-center gap-1.5 ml-1">
+                            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                            </svg>
+                            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
+                                {show.number_of_seasons} {show.number_of_seasons === 1 ? 'Сезон' : 'Сезонов'}
+                            </span>
+                        </div>
+                    )}
+                    
+                    {/* EPISODES (Исправлено: details.number_of_episodes) */}
+                    {details.number_of_episodes && (
+                        <>
+                             <div className="w-1 h-1 rounded-full bg-slate-500" />
+                             <div className="flex items-center gap-1.5">
+                                <span className="text-xs sm:text-sm font-medium text-slate-300 tracking-wide">
+                                    {details.number_of_episodes} Серий
+                                </span>
+                             </div>
+                        </>
+                    )}
 
-    {/* 4. SEASONS: Количество сезонов (Яркий текст) */}
-    {show.number_of_seasons && (
-        <div className="flex items-center gap-1.5 ml-1">
-             {/* Иконка слоев */}
-            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
-                {show.number_of_seasons} {show.number_of_seasons === 1 ? 'Сезон' : 'Сезонов'}
-            </span>
-        </div>
-    )}
-
-</div>
-
+                 </div>
                  
                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">{show.name}</h1>
                  
@@ -221,7 +242,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                 <SimilarList items={similar} type="tv" />
             </div>
 
-            {/* Right Details (Extended Sticky Card) */}
+            {/* Right Details */}
             <div className="w-full lg:w-[320px] flex-shrink-0">
                 <div className="lg:sticky lg:top-24 space-y-6">
                     
@@ -234,7 +255,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                         
                         <div className="flex flex-col gap-5">
                             
-                            {/* 1. Оригинальное название (если отличается) */}
+                            {/* 1. Оригинал */}
                             {details.original_name && show.name !== details.original_name && (
                                 <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинал</span>
@@ -244,7 +265,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                                 </div>
                             )}
 
-                            {/* 2. Сетка: Статус и Язык */}
+                            {/* 2. Статус и Язык */}
                             <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
                                 <div>
                                     <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Статус</span>
@@ -258,7 +279,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                                 </div>
                             </div>
 
-                            {/* 3. Сеть (Канал) */}
+                            {/* 3. Канал */}
                             {details.networks && details.networks.length > 0 && (
                                 <div className="border-b border-white/5 pb-3">
                                     <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Канал</span>
@@ -316,10 +337,8 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                                     ))}
                                 </div>
                             </div>
-
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -395,7 +414,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
               })}
            </div>
         </div>
-
       </div>
     </div>
   );
