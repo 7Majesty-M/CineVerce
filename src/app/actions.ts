@@ -8,7 +8,8 @@ import { auth } from '@/auth'; // NextAuth
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import { getMovieById, searchMulti, getPopularMovies, getPopularTVShows } from '@/lib/tmdb';
-
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const BASE_URL = 'https://api.themoviedb.org/3';
 export async function updateListName(listId: number, newName: string) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -405,4 +406,27 @@ export async function fetchMoreMovies(page: number) {
 
 export async function fetchMoreTVShows(page: number) {
   return await getPaginatedBatch(page, getPopularTVShows);
+}
+// Типы категорий для TMDB
+type MovieCategory = 'popular' | 'top_rated' | 'upcoming' | 'now_playing';
+type TVCategory = 'popular' | 'top_rated' | 'on_the_air' | 'airing_today';
+
+export async function getMediaCollection(type: 'movie' | 'tv', category: MovieCategory | TVCategory) {
+  const endpoint = `/${type}/${category}`;
+  
+  const params = new URLSearchParams({
+    api_key: TMDB_API_KEY!,
+    language: 'ru-RU',
+    page: '1',
+    region: 'RU' // Опционально: чтобы получать даты выхода для региона (актуально для Now Playing)
+  });
+
+  try {
+    const res = await fetch(`${BASE_URL}${endpoint}?${params.toString()}`, { next: { revalidate: 3600 * 4 } }); // Кэш на 4 часа
+    const data = await res.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(`Error fetching ${type} collection ${category}:`, error);
+    return [];
+  }
 }
