@@ -33,11 +33,16 @@ export default function Navbar() {
           
           {/* ЛОГОТИП */}
           <Link href="/" className="flex items-center gap-4 group cursor-pointer z-[60]">
-            <div className="relative w-10 h-10 flex items-center justify-center">
+            <div className="relative w-15 h-15 flex items-center justify-center">
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500 opacity-80 blur group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative w-full h-full rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500 flex items-center justify-center shadow-inner group-hover:rotate-6 transition-transform duration-300">
-                <span className="text-xl">🎬</span>
-              </div>
+<div className="relative w-full h-full rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500 flex items-center justify-center shadow-inner group-hover:rotate-6 transition-transform duration-300">
+   <img 
+      src="/favicon.ico" 
+      alt="Logo" 
+      className="w-14 h-14 object-contain drop-shadow-md rounded-full" 
+   />
+</div>
+
             </div>
             <div className="flex flex-col">
               <span className="text-2xl font-black tracking-tight text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-yellow-400 group-hover:to-pink-500 transition-all">
