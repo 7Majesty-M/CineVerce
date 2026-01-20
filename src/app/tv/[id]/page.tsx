@@ -117,16 +117,55 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
 
               {/* Info */}
               <div className="flex-1 pb-2">
-                 <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    {details.networks && details.networks[0] && (
-                      <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur border border-white/5">
-                          <img src={`https://image.tmdb.org/t/p/w200${details.networks[0].logo_path}`} alt={details.networks[0].name} className="h-5 object-contain filter brightness-0 invert" />
-                      </div>
-                    )}
-                    <div className="px-3 py-1 rounded-md bg-pink-500/10 backdrop-blur-md border border-pink-500/20 text-[10px] font-bold tracking-widest uppercase text-pink-400">TV Series</div>
-                    {releaseYear && <div className="px-3 py-1 rounded-md bg-transparent border border-white/20 text-[10px] font-bold tracking-widest text-slate-300">{releaseYear}</div>}
-                    <div className="text-xs font-medium text-slate-400 border border-white/10 px-2 py-1 rounded-md">{show.number_of_seasons} Сезонов</div>
-                 </div>
+<div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
+    
+    {/* 1. NETWORK LOGO (Первым делом - студия) */}
+    {details.networks && details.networks[0] && (
+        <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center justify-center h-6 sm:h-7 opacity-90 hover:opacity-100 transition-opacity">
+                <img 
+                    src={`https://image.tmdb.org/t/p/w200${details.networks[0].logo_path}`} 
+                    alt={details.networks[0].name} 
+                    className="h-full w-auto object-contain filter brightness-0 invert drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" 
+                />
+            </div>
+            {/* Разделитель после лого */}
+            <div className="w-px h-4 bg-white/20" />
+        </div>
+    )}
+
+    {/* 2. BADGE: TV Series */}
+    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+        TV Series
+    </div>
+
+    {/* Разделитель */}
+    <div className="w-px h-4 bg-white/20" />
+
+    {/* 3. YEAR: Год выхода */}
+    {releaseYear && (
+        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
+            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
+                {releaseYear}
+            </span>
+        </div>
+    )}
+
+    {/* 4. SEASONS: Количество сезонов (Яркий текст) */}
+    {show.number_of_seasons && (
+        <div className="flex items-center gap-1.5 ml-1">
+             {/* Иконка слоев */}
+            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
+                {show.number_of_seasons} {show.number_of_seasons === 1 ? 'Сезон' : 'Сезонов'}
+            </span>
+        </div>
+    )}
+
+</div>
+
                  
                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">{show.name}</h1>
                  

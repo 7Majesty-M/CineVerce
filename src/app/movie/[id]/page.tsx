@@ -119,22 +119,47 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
               <div className="flex-1 pb-2">
                  
                  {/* Metadata */}
-                 <div className="flex flex-wrap items-center gap-3 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="px-3 py-1 rounded-md bg-white/10 backdrop-blur-md border border-white/10 text-[10px] font-bold tracking-widest uppercase text-white/80">
-                        Movie
-                    </div>
-                    {releaseYear && (
-                        <div className="px-3 py-1 rounded-md bg-transparent border border-white/20 text-[10px] font-bold tracking-widest text-slate-300">
-                            {releaseYear}
-                        </div>
-                    )}
-                    {movie.runtime && (
-                        <div className="text-xs font-medium text-slate-400">
-                            {Math.floor(movie.runtime / 60)}h {movie.runtime % 60}m
-                        </div>
-                    )}
-                 </div>
-                 
+<div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 select-none">
+
+    {/* 1. BADGE: Тип медиа */}
+    <div className="px-3 py-1 rounded-full bg-white text-black text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-[0_0_15px_rgba(255,255,255,0.4)]">
+        Movie
+    </div>
+
+    {/* Разделитель */}
+    <div className="w-px h-4 bg-white/20" />
+
+    {/* 2. BADGE: Год выхода */}
+    {releaseYear && (
+        <div className="flex items-center justify-center px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 backdrop-blur-sm">
+            <span className="text-xs sm:text-sm font-bold text-slate-200 shadow-black drop-shadow-sm">
+                {releaseYear}
+            </span>
+        </div>
+    )}
+
+    {/* 3. INFO: Длительность (СДЕЛАЛ ЯРЧЕ) */}
+    {movie.runtime && (
+        <div className="flex items-center gap-1.5">
+            {/* Иконка: стала светлее (text-slate-200) */}
+            <svg className="w-4 h-4 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            
+            {/* Текст: стал почти белым (text-slate-100) и жирнее (font-semibold) */}
+            <span className="text-xs sm:text-sm font-semibold text-slate-100 tracking-wide drop-shadow-sm">
+                {Math.floor(movie.runtime / 60)}ч {movie.runtime % 60}м
+            </span>
+        </div>
+    )}
+
+    {/* Бонус: Качество */}
+    <div className="hidden sm:flex items-center justify-center px-1.5 py-0.5 rounded border border-white/20 text-[9px] font-bold text-slate-300 uppercase tracking-wider ml-auto sm:ml-0">
+        4K HDR
+    </div>
+
+</div>
+      
                  {/* Title */}
                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">
                   {movie.title}
