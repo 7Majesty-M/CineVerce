@@ -1,26 +1,26 @@
 import { db } from '@/db';
-import { reviews, follows, watchlist, users } from '@/db/schema'; // Добавил users
+import { reviews, follows, watchlist, users } from '@/db/schema';
 import { eq, and, count, desc } from 'drizzle-orm';
-import { auth } from '@/auth'; // NextAuth
+import { auth } from '@/auth';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
 import ProfileClientView from '@/components/ProfileClientView';
-import ProfileHeader from '@/components/ProfileHeader'; // Новый хедер
+import ProfileHeader from '@/components/ProfileHeader';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar'; // 1. Добавлен импорт
 
 export const dynamic = 'force-dynamic';
 
 export default async function UniversalProfilePage(props: { params: Promise<{ userId: string }> }) {
   const params = await props.params;
   const targetUserId = params.userId;
-  
+
   // 1. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА (КТО СМОТРИТ)
   const session = await auth();
   const currentUserId = session?.user?.id;
-
   const isOwnProfile = currentUserId === targetUserId;
 
-  // 2. ПОЛУЧАЕМ ДАННЫЕ ЦЕЛЕВОГО ЮЗЕРА ИЗ БД (ВМЕСТО CLERK)
+  // 2. ПОЛУЧАЕМ ДАННЫЕ ЦЕЛЕВОГО ЮЗЕРА ИЗ БД
   const userResult = await db.select().from(users).where(eq(users.id, targetUserId));
   const targetUser = userResult[0];
 
@@ -54,7 +54,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   // Считаем подписчиков
   const followersData = await db.select({ count: count() }).from(follows).where(eq(follows.followingId, targetUserId));
   const followingData = await db.select({ count: count() }).from(follows).where(eq(follows.followerId, targetUserId));
-  
+
   const followersCount = followersData[0].count;
   const followingCount = followingData[0].count;
 
@@ -92,9 +92,10 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   const averageScore = totalReviews ? (userReviews.reduce((a, b) => a + b.rating, 0) / totalReviews).toFixed(1) : '0.0';
 
   // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
-
+  
   // История
   const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime()).slice(0, 5);
+
   const history = await Promise.all(
     sortedReviews.map(async (review) => {
         let mediaData: any = null;
@@ -107,7 +108,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         } catch (e) { }
         
         const safeData = mediaData as any;
-
         return {
             ...review,
             poster_path: safeData?.poster_path,
@@ -130,7 +130,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         } catch (e) { }
 
         const safeData = mediaData as any;
-
         return {
             ...item,
             poster_path: safeData?.poster_path,
@@ -147,13 +146,15 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
       if (count >= 5) return { name: 'Любитель', next: 10, progress: (count / 10) * 100, color: 'text-blue-400', bg: 'bg-blue-500' };
       return { name: 'Новичок', next: 5, progress: (count / 5) * 100, color: 'text-slate-400', bg: 'bg-slate-500' };
   };
+
   const level = getLevel(totalReviews);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
+      <Navbar /> {/* 2. Добавлен Navbar */}
       
       {/* КНОПКА НАЗАД */}
-      <div className="fixed top-8 left-6 md:left-12 z-50">
+      <div className="fixed top-8 left-6 md:left-12 z-50 pt-20">
         <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
             <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
             На главную
@@ -186,7 +187,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         totalReviews={totalReviews}
         averageScore={averageScore}
       />
-
     </div>
   );
 }

@@ -39,6 +39,7 @@ export default function Navbar() {
    <img 
       src="/favicon.ico" 
       alt="Logo" 
+      // Добавил rounded-full
       className="w-14 h-14 object-contain drop-shadow-md rounded-full" 
    />
 </div>

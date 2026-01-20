@@ -141,9 +141,12 @@ export default function ProfileHeader({
                     )}
                     
                     {isOwnProfile && (
-                        <button className="px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-bold text-sm transition-all text-slate-300 hover:text-white">
-                            Редактировать
-                        </button>
+                        <div className="text-center mb-4">
+  <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 drop-shadow-sm">
+    Добро пожаловать в Вашу вселенную! ✨
+  </span>
+</div>
+
                     )}
                 </div>
             </div>
