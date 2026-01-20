@@ -324,3 +324,19 @@ export async function getPersonCredits(id: string): Promise<PersonCredit[]> {
     return [];
   }
 }
+
+export async function getTrendingMovies() {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/trending/movie/week?api_key=${API_KEY}&language=ru-RU`, {
+      next: { revalidate: 3600 }, // Кэш на 1 час
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch trending movies');
+
+    const data = await res.json();
+    return data.results || [];
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}

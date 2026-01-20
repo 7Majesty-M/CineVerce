@@ -182,102 +182,137 @@ export default async function Home() {
 
 // --- КОМПОНЕНТ GENRE BENTO (ОБНОВЛЕННЫЙ) ---
 function GenreBento() {
-    const genres = [
-      // === БОЛЬШИЕ БЛОКИ (Акценты) ===
-      { id: 28, name: "Экшен", emoji: "💥", color: "from-orange-600 to-red-600", span: "col-span-2 row-span-2 md:col-span-2 md:row-span-2" },
-      { id: 16, name: "Аниме", emoji: "🎌", color: "from-pink-500 to-rose-500", span: "col-span-2 row-span-1 md:col-span-1 md:row-span-2" },
-      { id: 18, name: "Драма", emoji: "🎭", color: "from-teal-500 to-emerald-600", span: "col-span-2 md:col-span-2 md:row-span-1" },
+  const genres = [
+    // === БОЛЬШИЕ БЛОКИ (Акценты) ===
+    { id: 28, name: "Экшен", emoji: "💥", color: "from-orange-500 via-red-500 to-red-600", span: "col-span-2 row-span-2 md:col-span-2 md:row-span-2", iconColor: "text-orange-200" },
+    { id: 16, name: "Аниме", emoji: "🎌", color: "from-pink-500 via-rose-500 to-red-500", span: "col-span-2 row-span-1 md:col-span-1 md:row-span-2", iconColor: "text-pink-200" },
+    { id: 18, name: "Драма", emoji: "🎭", color: "from-teal-400 via-emerald-500 to-green-600", span: "col-span-2 md:col-span-2 md:row-span-1", iconColor: "text-teal-200" },
+    
+    // === СТАНДАРТНЫЕ БЛОКИ ===
+    { id: 878, name: "Sci-Fi", emoji: "👽", color: "from-cyan-400 via-blue-500 to-indigo-600", span: "col-span-1", iconColor: "text-cyan-200" },
+    { id: 27, name: "Хоррор", emoji: "👻", color: "from-red-900 via-red-950 to-black", span: "col-span-1", iconColor: "text-red-200" },
+    { id: 35, name: "Комедия", emoji: "😂", color: "from-yellow-300 via-orange-400 to-orange-500", span: "col-span-1", iconColor: "text-yellow-200" },
+    { id: 10749, name: "Романтика", emoji: "💖", color: "from-rose-300 via-pink-400 to-red-400", span: "col-span-1", iconColor: "text-rose-200" },
+    
+    // === ДЛИННЫЕ ГОРИЗОНТАЛЬНЫЕ ===
+    { id: 12, name: "Приключения", emoji: "🤠", color: "from-lime-400 via-green-500 to-emerald-600", span: "col-span-2", iconColor: "text-lime-200" },
+
+    // === ОСТАЛЬНЫЕ ===
+    { id: 14, name: "Фэнтези", emoji: "🧙‍♂️", color: "from-violet-500 via-purple-500 to-fuchsia-600", span: "col-span-1", iconColor: "text-violet-200" },
+    { id: 80, name: "Криминал", emoji: "🔫", color: "from-gray-700 via-slate-800 to-slate-900", span: "col-span-1", iconColor: "text-gray-400" },
+    { id: 53, name: "Триллер", emoji: "🔪", color: "from-stone-500 via-red-800 to-red-950", span: "col-span-1", iconColor: "text-stone-300" },
+    { id: 10751, name: "Семейный", emoji: "👨‍👩‍👧‍👦", color: "from-sky-400 via-blue-400 to-indigo-500", span: "col-span-1", iconColor: "text-sky-200" },
+    { id: 9648, name: "Детектив", emoji: "🔎", color: "from-zinc-500 via-slate-600 to-slate-800", span: "col-span-1", iconColor: "text-zinc-300" },
+    { id: 36, name: "История", emoji: "📜", color: "from-amber-600 via-yellow-700 to-yellow-900", span: "col-span-1", iconColor: "text-amber-200" },
+    { id: 10752, name: "Военный", emoji: "🎖️", color: "from-olive-600 via-stone-700 to-stone-800", span: "col-span-1", iconColor: "text-olive-200" },
+    { id: 10402, name: "Музыка", emoji: "🎵", color: "from-fuchsia-400 via-purple-500 to-indigo-600", span: "col-span-1", iconColor: "text-fuchsia-200" },
+    { id: 37, name: "Вестерн", emoji: "🌵", color: "from-orange-700 via-amber-800 to-amber-950", span: "col-span-1", iconColor: "text-orange-300" },
+    { id: 99, name: "Документальный", emoji: "🎥", color: "from-blue-700 via-slate-800 to-gray-900", span: "col-span-2 md:col-span-1", iconColor: "text-blue-300" },
+  ];
+
+  return (
+    <section className="py-24 px-4 md:px-8 border-t border-white/5 relative bg-[#030303] overflow-hidden selection:bg-purple-500/30">
       
-      // === СТАНДАРТНЫЕ БЛОКИ ===
-      { id: 878, name: "Sci-Fi", emoji: "👽", color: "from-blue-600 to-cyan-400", span: "col-span-1" },
-      { id: 27, name: "Хоррор", emoji: "👻", color: "from-red-900 to-black", span: "col-span-1" },
-      { id: 35, name: "Комедия", emoji: "😂", color: "from-yellow-400 to-orange-500", span: "col-span-1" },
-      { id: 10749, name: "Романтика", emoji: "💖", color: "from-pink-400 to-red-400", span: "col-span-1" },
+      {/* --- ФОНОВЫЕ ЭФФЕКТЫ --- */}
       
-      // === ДЛИННЫЕ ГОРИЗОНТАЛЬНЫЕ ===
-      { id: 12, name: "Приключения", emoji: "🤠", color: "from-green-500 to-lime-500", span: "col-span-2" },
-  
-      // === ОСТАЛЬНЫЕ ===
-      { id: 14, name: "Фэнтези", emoji: "🧙‍♂️", color: "from-violet-600 to-fuchsia-600", span: "col-span-1" },
-      { id: 80, name: "Криминал", emoji: "🔫", color: "from-slate-700 to-slate-900", span: "col-span-1" },
-      { id: 53, name: "Триллер", emoji: "🔪", color: "from-stone-600 to-red-900", span: "col-span-1" },
-      { id: 10751, name: "Семейный", emoji: "👨‍👩‍👧‍👦", color: "from-indigo-400 to-blue-400", span: "col-span-1" },
-      { id: 9648, name: "Детектив", emoji: "🔎", color: "from-zinc-600 to-zinc-800", span: "col-span-1" },
-      { id: 36, name: "История", emoji: "📜", color: "from-amber-700 to-yellow-900", span: "col-span-1" },
-      { id: 10752, name: "Военный", emoji: "🎖️", color: "from-olive-700 to-stone-800", span: "col-span-1" },
-      { id: 10402, name: "Музыка", emoji: "🎵", color: "from-fuchsia-500 to-purple-600", span: "col-span-1" },
-      { id: 37, name: "Вестерн", emoji: "🌵", color: "from-orange-800 to-amber-900", span: "col-span-1" },
-      { id: 99, name: "Документальный", emoji: "🎥", color: "from-blue-800 to-slate-800", span: "col-span-2 md:col-span-1" },
-    ];
-  
-    return (
-      <section className="py-24 px-4 md:px-8 border-t border-white/5 relative bg-[#050505] overflow-hidden">
+      {/* 1. Техно-сетка для глубины */}
+      <div 
+        className="absolute inset-0 z-0 opacity-[0.03]" 
+        style={{
+            backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+            backgroundSize: '40px 40px'
+        }}
+      />
+
+      {/* 2. Живые цветные пятна (Orb) */}
+      <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-purple-600/15 blur-[150px] rounded-full mix-blend-screen animate-pulse duration-[10000ms]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[800px] h-[800px] bg-indigo-600/10 blur-[150px] rounded-full mix-blend-screen animate-pulse duration-[12000ms] delay-1000" />
+      
+      <div className="max-w-[1600px] mx-auto relative z-10">
+        <SectionHeader 
+            title="🎭 Настроение вечера" 
+            subtitle="Кинематографичная подборка под любой вайб" 
+            gradient="from-white via-slate-200 to-slate-400"
+        />
         
-        {/* Фоновые пятна */}
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-purple-900/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-900/10 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
-  
-        <div className="max-w-[1600px] mx-auto relative z-10">
-          <SectionHeader 
-              title="🎭 Выбери настроение" 
-              subtitle="Найди идеальный фильм или сериал для сегодняшнего вечера" 
-              gradient="from-white to-slate-400"
-          />
-          
-          {/* GRID-AUTO-FLOW: DENSE для красивой укладки плитки */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[160px] grid-flow-dense">
-            {genres.map((genre) => (
-              <Link
-                key={genre.id}
-                href={`/discover?genre=${genre.id}`}
-                className={`
-                  relative group rounded-3xl overflow-hidden cursor-pointer
-                  border border-white/5 bg-[#111] backdrop-blur-sm
-                  transition-all duration-500 hover:scale-[1.02] hover:border-white/20 hover:shadow-2xl hover:z-10
-                  ${genre.span}
-                `}
-              >
-                {/* Градиентный фон */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${genre.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out`} />
+        {/* --- СЕТКА (BENTO GRID) --- */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 auto-rows-[160px] grid-flow-dense pb-20">
+          {genres.map((genre) => (
+            <Link
+              key={genre.id}
+              href={`/discover?genre=${genre.id}`}
+              // Используем 'group' для управления дочерними элементами
+              // 'backface-hidden' и 'transform-gpu' критичны для четкости текста
+              className={`
+                group relative rounded-[2rem] overflow-hidden cursor-pointer
+                bg-[#0a0a0a] border border-white/5
+                transition-all duration-500 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]
+                hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/20 hover:border-white/20 hover:z-20
+                transform-gpu backface-hidden perspective-1000
+                ${genre.span}
+              `}
+            >
+              {/* 1. Градиентный фон (по умолчанию скрыт, плавно появляется) */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${genre.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-out`} />
+              
+              {/* 2. Шум (Noise texture) - придает кинематографичность */}
+              <div className="absolute inset-0 opacity-[0.12] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
+
+              {/* 3. Внутреннее затемнение (Vignette) для читаемости текста */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-80 group-hover:opacity-60 transition-opacity duration-500" />
+              
+              {/* 4. Блик по контуру (Inner border shine) */}
+              <div className="absolute inset-0 rounded-[2rem] border border-white/0 group-hover:border-white/10 transition-colors duration-500 pointer-events-none" />
+
+              {/* --- КОНТЕНТ --- */}
+              <div className="absolute inset-0 p-5 md:p-7 flex flex-col justify-between z-10">
                 
-                {/* Затемнение для читаемости */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                {/* Верхняя часть: Эмодзи и Стрелка */}
+                <div className="flex justify-between items-start">
+                    {/* Эмодзи с тенью */}
+                    <span className="text-4xl md:text-5xl drop-shadow-2xl filter transform group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500 cubic-bezier(0.34, 1.56, 0.64, 1)">
+                      {genre.emoji}
+                    </span>
+
+                    {/* Кнопка перехода (появляется с эффектом стекла) */}
+                    <div className="
+                        w-10 h-10 rounded-full 
+                        bg-white/10 backdrop-blur-md border border-white/10 
+                        flex items-center justify-center 
+                        opacity-0 -translate-y-4 scale-50 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 
+                        transition-all duration-300 ease-out shadow-lg
+                    ">
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                      </svg>
+                    </div>
+                </div>
                 
-                {/* Шум */}
-                <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none"></div>
-                
-                {/* Контент */}
-                <div className="absolute inset-0 p-5 md:p-6 flex flex-col justify-between z-10">
-                  <div className="flex justify-between items-start">
-                     {/* Эмодзи */}
-                     <span className="text-4xl md:text-5xl drop-shadow-lg transform group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300 origin-bottom-left">
-                       {genre.emoji}
-                     </span>
-  
-                     {/* Стрелочка */}
-                     <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center opacity-0 -translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                       <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
-                       </svg>
+                {/* Нижняя часть: Название и CTA */}
+                <div className="transform translate-y-2 group-hover:translate-y-0 transition-transform duration-500 ease-out">
+                  <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight drop-shadow-md group-hover:text-white transition-colors">
+                    {genre.name}
+                  </h3>
+                  
+                  {/* Анимированная полоска прогресса / CTA */}
+                  <div className="h-0 overflow-hidden group-hover:h-6 transition-all duration-300 ease-out mt-0 group-hover:mt-2 opacity-0 group-hover:opacity-100">
+                     <div className="flex items-center gap-2">
+                        <span className="h-[2px] w-4 bg-white/50 rounded-full inline-block"></span>
+                        <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">
+                          Смотреть
+                        </p>
                      </div>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-lg md:text-2xl font-bold text-white tracking-tight group-hover:translate-x-1 transition-transform duration-300 drop-shadow-md">
-                      {genre.name}
-                    </h3>
-                    <p className="text-[10px] md:text-xs font-bold text-white/60 uppercase tracking-widest mt-1 opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 delay-75">
-                      Перейти
-                    </p>
-                  </div>
                 </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+            </Link>
+          ))}
         </div>
-      </section>
-    )
+      </div>
+    </section>
+  )
 }
+
 
 // --- КОМПОНЕНТ БЕГУЩЕЙ ЛЕНТЫ ---
 function InfiniteTape({ items, speed = 30 }: { items: any[], speed?: number }) {

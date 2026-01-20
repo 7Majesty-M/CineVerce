@@ -7,11 +7,15 @@ import { useRouter } from 'next/navigation';
 export default function AddToListDropdown({ 
     mediaId, 
     mediaType,
-    compact = false // <--- 1. Добавили проп
+    compact = false,
+    modal = false,
+    position = 'right' // <--- НОВЫЙ ПРОП: 'left' | 'right'
 }: { 
     mediaId: number, 
     mediaType: 'movie' | 'tv',
-    compact?: boolean 
+    compact?: boolean,
+    modal?: boolean,
+    position?: 'left' | 'right'
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [lists, setLists] = useState<any[]>([]);
@@ -43,13 +47,21 @@ export default function AddToListDropdown({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleToggleList = async (listId: number) => {
+  const handleToggleList = async (listId: number, e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       setLists(prev => prev.map(l => l.id === listId ? { ...l, hasMedia: !l.hasMedia } : l));
       await toggleListItem(listId, mediaId, mediaType);
       router.refresh();
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async (e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       if(!newListName.trim()) return;
       const res = await createList(newListName, '');
       if(res.success && res.listId) {
@@ -67,8 +79,11 @@ export default function AddToListDropdown({
         
         {/* КНОПКА ТРИГГЕР */}
         <button 
-            onClick={() => setIsOpen(!isOpen)}
-            // 2. Условные классы: p-3 rounded-full для компактного вида
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsOpen(!isOpen);
+            }}
             className={`
                 border border-white/10 font-bold text-sm transition-all flex items-center justify-center
                 ${compact ? 'p-3 rounded-full' : 'px-6 py-3 rounded-xl gap-2'}
@@ -76,64 +91,145 @@ export default function AddToListDropdown({
             `}
             title="Добавить в коллекцию"
         >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
             
-            {/* 3. Скрываем текст */}
-            {!compact && (
-                <span>В коллекцию</span>
-            )}
+            {!compact && <span>В коллекцию</span>}
         </button>
 
-        {/* ВЫПАДАЮЩЕЕ МЕНЮ */}
+        {/* ВЫПАДАЮЩЕЕ МЕНЮ ИЛИ МОДАЛЬНОЕ ОКНО */}
         {isOpen && (
-            <div className="absolute bottom-full mb-2 left-0 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl p-2 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
-                
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Ваши списки</div>
-                
-                {loading ? (
-                    <div className="py-4 flex justify-center"><div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div></div>
-                ) : (
-                    <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
-                        {lists.map(list => (
-                            <button
-                                key={list.id}
-                                onClick={() => handleToggleList(list.id)}
-                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left group"
+            <>
+                {/* Затемнение для модального режима */}
+                {modal && (
+                    <div 
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] animate-fadeIn"
+                        onClick={() => setIsOpen(false)}
+                    />
+                )}
+
+                {/* Контент меню/модалки */}
+                <div 
+                    className={`
+                        ${modal 
+                            ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-[90vw] max-w-md animate-scaleIn' 
+                            : `absolute bottom-full mb-2 z-50 ${position === 'left' ? 'right-0' : 'left-0'}`
+                        }
+                        bg-gradient-to-br from-slate-900 to-slate-800 
+                        border border-white/20 
+                        rounded-2xl 
+                        shadow-2xl 
+                        ${modal ? 'p-6' : 'p-2'}
+                        ${modal ? '' : 'w-64'}
+                    `}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Заголовок */}
+                    <div className={`flex items-center justify-between ${modal ? 'mb-4' : 'px-3 py-2'}`}>
+                        <h3 className={`${modal ? 'text-lg' : 'text-xs'} font-bold ${modal ? 'text-white' : 'text-slate-500 uppercase tracking-widest'} flex items-center gap-2`}>
+                            {modal && (
+                                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                            )}
+                            Ваши списки
+                        </h3>
+                        {modal && (
+                            <button 
+                                onClick={() => setIsOpen(false)}
+                                className="text-slate-400 hover:text-white transition-colors"
                             >
-                                <span className="text-sm font-medium text-slate-200 group-hover:text-white truncate">{list.name}</span>
-                                {list.hasMedia && <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
                             </button>
-                        ))}
-                        {lists.length === 0 && <div className="text-xs text-slate-600 px-3 py-2 text-center">Нет списков</div>}
+                        )}
                     </div>
-                )}
 
-                <div className="h-px bg-white/10 my-2"></div>
+                    {/* Список */}
+                    {loading ? (
+                        <div className={`flex items-center justify-center ${modal ? 'py-8' : 'py-4'} text-slate-400`}>
+                            <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                    ) : (
+                        <div className={`space-y-1 ${modal ? 'max-h-[50vh] overflow-y-auto scrollbar-thin' : 'max-h-48 overflow-y-auto'}`}>
+                            {lists.map(list => (
+                                <button
+                                    key={list.id}
+                                    onClick={(e) => handleToggleList(list.id, e)}
+                                    className={`w-full flex items-center justify-between ${modal ? 'px-4 py-3' : 'px-3 py-2'} rounded-xl hover:bg-white/10 transition-all text-left group border border-transparent hover:border-white/10`}
+                                >
+                                    <span className={`${modal ? 'font-medium' : 'text-sm font-medium'} text-white truncate`}>{list.name}</span>
+                                    {list.hasMedia && (
+                                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                    )}
+                                </button>
+                            ))}
+                            {lists.length === 0 && (
+                                <div className={`text-center ${modal ? 'py-8' : 'py-2 px-3'} text-slate-500 text-xs`}>
+                                    Нет списков
+                                </div>
+                            )}
+                        </div>
+                    )}
 
-                {/* СОЗДАНИЕ СПИСКА */}
-                {creating ? (
-                    <div className="px-2 pb-1">
-                        <input 
-                            autoFocus
-                            type="text" 
-                            className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white outline-none mb-2"
-                            placeholder="Название..."
-                            value={newListName}
-                            onChange={e => setNewListName(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                        />
-                        <button onClick={handleCreate} className="w-full bg-white text-black text-xs font-bold py-1.5 rounded-lg">Создать</button>
-                    </div>
-                ) : (
-                    <button 
-                        onClick={() => setCreating(true)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 text-xs font-bold text-slate-400 hover:text-white transition-colors"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-                        Создать новый список
-                    </button>
-                )}
-            </div>
+                    {/* Разделитель */}
+                    <div className={`border-t border-white/10 ${modal ? 'my-4' : 'my-2'}`}></div>
+
+                    {/* СОЗДАНИЕ СПИСКА */}
+                    {creating ? (
+                        <div className={`space-y-3 ${modal ? '' : 'px-2 pb-1'}`}>
+                            <input 
+                                autoFocus
+                                type="text" 
+                                className={`w-full bg-black/50 border border-white/20 rounded-xl ${modal ? 'px-4 py-3' : 'px-2 py-1.5'} text-sm text-white outline-none focus:border-purple-500 transition-colors`}
+                                placeholder="Название списка..."
+                                value={newListName}
+                                onChange={e => setNewListName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                            />
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={(e) => handleCreate(e)}
+                                    className={`flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white ${modal ? 'px-4 py-2.5' : 'py-1.5'} rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all text-sm`}
+                                >
+                                    Создать
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setCreating(false);
+                                    }}
+                                    className={`${modal ? 'px-4 py-2.5' : 'px-3 py-1.5'} bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium transition-all text-sm`}
+                                >
+                                    Отмена
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCreating(true);
+                            }}
+                            className={`w-full flex items-center ${modal ? 'justify-center' : ''} gap-2 ${modal ? 'px-4 py-3' : 'px-3 py-2'} rounded-xl bg-white/5 hover:bg-white/10 text-sm font-bold text-purple-400 hover:text-purple-300 transition-all border border-white/10 hover:border-purple-500/50`}
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Создать новый список
+                        </button>
+                    )}
+                </div>
+            </>
         )}
     </div>
   )
