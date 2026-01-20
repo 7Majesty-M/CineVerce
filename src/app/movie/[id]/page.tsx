@@ -175,29 +175,29 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                  </div>
 
                  {/* ACTION BUTTONS */}
-                 <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                    {trailerKey && <PlayHeroButton />}
-                    
-                    <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-                        <Link 
-                            href={`/movie/${movie.id}/rate`} 
-                            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all hover:bg-white/10 flex items-center gap-2
-                                ${isRated ? 'text-green-400' : 'text-slate-300 hover:text-white'}
-                            `}
-                        >
-                            {isRated ? (
-                                <><span>★</span> {movieRating}</>
-                            ) : (
-                                <><span>☆</span> Оценить</>
-                            )}
-                        </Link>
-                        
-                        <div className="w-px h-6 bg-white/10" />
-                        <div className="scale-90"><WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} /></div>
-                        <div className="w-px h-6 bg-white/10" />
-                        <div className="scale-90"><AddToListDropdown mediaId={movie.id} mediaType="movie" /></div>
-                    </div>
-                 </div>
+<div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
+    
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
+        <Link 
+            href={`/movie/${movie.id}/rate`} 
+            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all hover:bg-white/10 flex items-center justify-center gap-2
+                ${isRated ? 'text-green-400' : 'text-slate-300 hover:text-white'}
+            `}
+        >
+            {isRated ? (
+                <><span>★</span> {movieRating}</>
+            ) : (
+                <><span>☆</span> Оценить</>
+            )}
+        </Link>
+        
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+        <div className="sm:scale-90"><WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} /></div>
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+        <div className="sm:scale-90"><AddToListDropdown mediaId={movie.id} mediaType="movie" /></div>
+    </div>
+</div>
               </div>
             </div>
           </div>
