@@ -4,29 +4,39 @@ import { useState, useTransition } from 'react';
 import { toggleWatchlist } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 
+interface WatchlistButtonProps {
+  mediaId: number;
+  mediaType: 'movie' | 'tv';
+  isInWatchlist?: boolean; // <--- Добавили '?', теперь это необязательно
+  compact?: boolean;
+}
+
 export default function WatchlistButton({ 
   mediaId, 
   mediaType, 
-  isInWatchlist,
-  compact = false // <--- 1. Добавили проп со значением по умолчанию
-}: { 
-  mediaId: number; 
-  mediaType: 'movie' | 'tv';
-  isInWatchlist: boolean;
-  compact?: boolean;
-}) {
+  isInWatchlist = false, // <--- Значение по умолчанию false
+  compact = false 
+}: WatchlistButtonProps) {
+
   const [added, setAdded] = useState(isInWatchlist);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const handleToggle = async () => {
+    // Оптимистичное обновление UI
     setAdded(!added); 
+    
     startTransition(async () => {
-      const res = await toggleWatchlist(mediaId, mediaType);
-      if (res.success) {
-        router.refresh();
-      } else {
-        setAdded(!added); 
+      try {
+        const res = await toggleWatchlist(mediaId, mediaType);
+        if (res.success) {
+          router.refresh();
+        } else {
+          // Если ошибка сервера, возвращаем как было
+          setAdded(!added); 
+        }
+      } catch (e) {
+        setAdded(!added);
       }
     });
   };
@@ -35,7 +45,6 @@ export default function WatchlistButton({
     <button
       onClick={handleToggle}
       disabled={isPending}
-      // 2. Условные классы: если compact, то кнопка круглая и маленькая (p-3), иначе большая (px-6 py-3)
       className={`
         font-bold text-sm transition-all duration-300 flex items-center justify-center group border
         ${compact ? 'p-3 rounded-full' : 'px-6 py-3 rounded-xl gap-2'}
@@ -44,7 +53,6 @@ export default function WatchlistButton({
           : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300 hover:text-white'
         }
       `}
-      // Добавляем title, чтобы при наведении на иконку было понятно, что это
       title={added ? 'Убрать из списка' : 'Буду смотреть'}
     >
       <svg 
@@ -55,7 +63,6 @@ export default function WatchlistButton({
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
       </svg>
 
-      {/* 3. Показываем текст ТОЛЬКО если НЕ compact */}
       {!compact && (
         <span>{added ? 'В списке' : 'Буду смотреть'}</span>
       )}
