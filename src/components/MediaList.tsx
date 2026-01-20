@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { fetchMoreMovies, fetchMoreTVShows } from '@/app/actions';
+// Импортируем функцию поиска по жанрам для пагинации
+import { fetchMoreMovies, fetchMoreTVShows, getMoviesByGenre } from '@/app/actions';
 
-// 1. ИМПОРТИРУЕМ КОМПОНЕНТЫ КНОПОК
 import WatchlistButton from '@/components/WatchlistButton';
 import AddToListDropdown from '@/components/AddToListDropdown';
 
@@ -17,16 +17,16 @@ export interface MediaItem {
   vote_average: number;
   release_date: string;
   mediaType: 'movie' | 'tv';
-  // 2. Добавляем поле для состояния
   isInWatchlist?: boolean; 
 }
 
 interface MediaListProps {
   initialItems: MediaItem[];
-  type: 'movie' | 'tv';
+  type: 'movie' | 'tv' | 'mixed'; // Добавил 'mixed'
+  genreId?: string; // Добавил ID жанра для загрузки следующих страниц
 }
 
-export default function MediaList({ initialItems, type }: MediaListProps) {
+export default function MediaList({ initialItems, type, genreId }: MediaListProps) {
   const [items, setItems] = useState<MediaItem[]>(initialItems || []);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,9 +42,19 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
     const nextPage = page + 1;
     
     try {
-      const rawData = type === 'movie' 
-        ? await fetchMoreMovies(nextPage) 
-        : await fetchMoreTVShows(nextPage);
+      let rawData;
+
+      // ЛОГИКА ЗАГРУЗКИ:
+      // Если есть genreId - значит мы в каталоге жанров (смешанный контент)
+      if (genreId) {
+         rawData = await getMoviesByGenre(genreId, nextPage);
+      } 
+      // Иначе старая логика (только фильмы или только сериалы)
+      else {
+         rawData = type === 'movie' 
+          ? await fetchMoreMovies(nextPage) 
+          : await fetchMoreTVShows(nextPage);
+      }
 
       if (!Array.isArray(rawData)) return;
 
@@ -56,8 +66,8 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
         overview: item.overview,
         vote_average: item.vote_average,
         release_date: item.release_date || item.first_air_date,
-        mediaType: type,
-        // 3. Устанавливаем дефолтное значение
+        // Если API не вернул mediaType, пытаемся угадать по наличию title, иначе берем из пропса, иначе дефолт
+        mediaType: item.mediaType || (item.title ? 'movie' : (type === 'mixed' ? 'movie' : type)), 
         isInWatchlist: false 
       }));
 
@@ -67,6 +77,7 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
         const uniqueNewItems = newItems.filter(item => !existingIds.has(item.id));
         return [...prevItems, ...uniqueNewItems];
       });
+
       setPage(nextPage);
     } catch (error) {
       console.error("Failed to load more:", error);
@@ -85,7 +96,6 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
             key={`${item.mediaType}-${item.id}-${index}`} 
             item={item} 
             index={index} 
-            type={type} 
           />
         ))}
       </div>
@@ -120,13 +130,19 @@ export default function MediaList({ initialItems, type }: MediaListProps) {
 
 // --- MEDIA CARD ---
 
-function MediaCard({ item, index, type }: { item: MediaItem; index: number; type: 'movie' | 'tv' }) {
+// Убрали пропс 'type' из аргументов, теперь всё берется из item.mediaType
+function MediaCard({ item, index }: { item: MediaItem; index: number }) {
+  
+  // Определяем тип конкретной карточки
+  const isMovie = item.mediaType === 'movie';
+  
   const linkHref = `/${item.mediaType}/${item.id}`;
   
-  const glowColor = type === 'movie' ? 'group-hover:shadow-cyan-500/30' : 'group-hover:shadow-pink-500/30';
-  const borderColor = type === 'movie' ? 'group-hover:border-cyan-500/50' : 'group-hover:border-pink-500/50';
-  const textColor = type === 'movie' ? 'group-hover:text-cyan-400' : 'group-hover:text-pink-400';
-  const badgeColor = type === 'movie' ? 'bg-cyan-500' : 'bg-pink-500';
+  // Динамические стили в зависимости от типа контента
+  const glowColor = isMovie ? 'group-hover:shadow-cyan-500/30' : 'group-hover:shadow-pink-500/30';
+  const borderColor = isMovie ? 'group-hover:border-cyan-500/50' : 'group-hover:border-pink-500/50';
+  const textColor = isMovie ? 'group-hover:text-cyan-400' : 'group-hover:text-pink-400';
+  const badgeColor = isMovie ? 'bg-cyan-500' : 'bg-pink-500';
 
   return (
     <Link 
@@ -136,9 +152,10 @@ function MediaCard({ item, index, type }: { item: MediaItem; index: number; type
     >
       <div className={`relative aspect-[2/3] rounded-2xl overflow-hidden bg-slate-900 shadow-xl border border-white/5 transition-all duration-500 ${glowColor} ${borderColor} group-hover:shadow-2xl group-hover:-translate-y-2 group-hover:z-10`}>
         
+        {/* Бейджик типа (Movie / TV) */}
         <div className={`absolute top-3 left-3 z-20 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider text-white shadow-lg backdrop-blur-md bg-black/40 border border-white/10 group-hover:scale-110 transition-transform duration-300`}>
           <div className={`absolute inset-0 ${badgeColor} opacity-20 rounded-md`}></div>
-          <span className="relative z-10">{type === 'movie' ? 'Movie' : 'TV'}</span>
+          <span className="relative z-10">{isMovie ? 'Movie' : 'TV'}</span>
         </div>
 
         {item.poster_path ? (
@@ -153,41 +170,35 @@ function MediaCard({ item, index, type }: { item: MediaItem; index: number; type
             {/* Оверлей при наведении */}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
               
-              {/* Кнопка Play по центру (старая) */}
-              <div className={`w-14 h-14 rounded-full ${badgeColor} flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)\] transform scale-50 group-hover:scale-100 transition-all duration-300 group-hover:rotate-0 rotate-45`}>
+              {/* Кнопка Play */}
+              <div className={`w-14 h-14 rounded-full ${badgeColor} flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.3)] transform scale-50 group-hover:scale-100 transition-all duration-300 group-hover:rotate-0 rotate-45`}>
                 <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               </div>
 
-              {/* 
-                  НОВЫЕ КНОПКИ 
-                  e.preventDefault() нужен, чтобы клик по кнопке не переходил по ссылке (Link)
-              */}
-              
-              {/* Слева внизу: В список */}
+              {/* Кнопка "В список" */}
               <div 
                 className="absolute bottom-3 left-3"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
               >
                   <AddToListDropdown 
                     mediaId={item.id} 
-                    mediaType={type}
+                    mediaType={item.mediaType} // Используем правильный тип
                     compact={true}
                   />
               </div>
 
-              {/* Справа внизу: Буду смотреть */}
+              {/* Кнопка "Буду смотреть" */}
               <div 
                 className="absolute bottom-3 right-3"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
               >
                   <WatchlistButton 
                     mediaId={item.id} 
-                    mediaType={type} 
+                    mediaType={item.mediaType} // Используем правильный тип
                     isInWatchlist={item.isInWatchlist || false}
                     compact={true}
                   />
               </div>
-
             </div>
           </>
         ) : (

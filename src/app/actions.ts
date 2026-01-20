@@ -430,3 +430,104 @@ export async function getMediaCollection(type: 'movie' | 'tv', category: MovieCa
     return [];
   }
 }
+// Карта перевода жанров: Movie ID -> TV ID
+const MOVIE_TO_TV_GENRE_MAP: Record<string, string> = {
+  '28': '10759',    // Action -> Action & Adventure
+  '12': '10759',    // Adventure -> Action & Adventure
+  '16': '16',       // Animation (совпадает)
+  '35': '35',       // Comedy (совпадает)
+  '80': '80',       // Crime (совпадает)
+  '99': '99',       // Documentary (совпадает)
+  '18': '18',       // Drama (совпадает)
+  '10751': '10751', // Family (совпадает)
+  '14': '10765',    // Fantasy -> Sci-Fi & Fantasy
+  '36': '9648',     // History -> Mystery (ближайшее, или пропускаем)
+  '27': '9648',     // Horror -> Mystery (в TV нет чистого Horror, часто это Mystery)
+  '10402': '10402', // Music
+  '9648': '9648',   // Mystery
+  '10749': '10766', // Romance -> Soap (или Drama 18)
+  '878': '10765',   // Sci-Fi -> Sci-Fi & Fantasy
+  '10770': '10770', // TV Movie
+  '53': '10759',    // Thriller -> Action & Adventure (или Crime 80)
+  '10752': '10768', // War -> War & Politics
+  '37': '37',       // Western
+};
+
+export async function getMoviesByGenre(genreId: string, page: number = 1) {
+  const apiKey = process.env.TMDB_API_KEY;
+  const isAll = !genreId || genreId === 'all';
+
+  const baseParams = {
+    api_key: apiKey!,
+    language: 'ru-RU',
+    page: page.toString(),
+    include_adult: 'false',
+  };
+
+  try {
+    let results: any[] = [];
+
+    if (isAll) {
+      // 1. СЦЕНАРИЙ "ВСЕ": Грузим тренды
+      const res = await fetch(
+        `https://api.themoviedb.org/3/trending/all/week?${new URLSearchParams(baseParams)}`, 
+        { next: { revalidate: 3600 } }
+      );
+      if (!res.ok) throw new Error('Failed to fetch trending');
+      const data = await res.json();
+      results = data.results;
+
+    } else {
+      // 2. СЦЕНАРИЙ "ЖАНР": Конвертируем ID и грузим параллельно
+      
+      // Определяем ID жанра для сериалов
+      // Если точного соответствия нет, используем тот же ID (на удачу)
+      const tvGenreId = MOVIE_TO_TV_GENRE_MAP[genreId] || genreId;
+
+      const movieParams = new URLSearchParams({
+        ...baseParams,
+        sort_by: 'popularity.desc',
+        with_genres: genreId,
+      });
+
+      const tvParams = new URLSearchParams({
+        ...baseParams,
+        sort_by: 'popularity.desc',
+        with_genres: tvGenreId, // ИСПОЛЬЗУЕМ КОНВЕРТИРОВАННЫЙ ID
+      });
+
+      // Запрашиваем фильмы и сериалы параллельно
+      const [moviesRes, tvRes] = await Promise.all([
+        fetch(`https://api.themoviedb.org/3/discover/movie?${movieParams}`, { next: { revalidate: 3600 } }),
+        fetch(`https://api.themoviedb.org/3/discover/tv?${tvParams}`, { next: { revalidate: 3600 } })
+      ]);
+
+      const moviesData = moviesRes.ok ? await moviesRes.json() : { results: [] };
+      const tvData = tvRes.ok ? await tvRes.json() : { results: [] };
+
+      // Добавляем метку типа
+      const movies = moviesData.results.map((m: any) => ({ ...m, media_type: 'movie' }));
+      const tvs = tvData.results.map((t: any) => ({ ...t, media_type: 'tv' }));
+
+      // Объединяем и сортируем по популярности
+      results = [...movies, ...tvs].sort((a, b) => b.popularity - a.popularity);
+    }
+
+    // 3. НОРМАЛИЗАЦИЯ
+    return results.map((item: any) => ({
+      id: item.id,
+      title: item.title || item.name,
+      poster_path: item.poster_path,
+      backdrop_path: item.backdrop_path,
+      overview: item.overview,
+      vote_average: item.vote_average,
+      release_date: item.release_date || item.first_air_date,
+      mediaType: item.media_type || (item.title ? 'movie' : 'tv'),
+    }));
+
+  } catch (error) {
+    console.error('Genre Fetch Error:', error);
+    return [];
+  }
+}
+

@@ -44,6 +44,7 @@ export default function SimilarList({ items, type }: { items: Recommendation[], 
   if (!items || items.length === 0) return null;
 
   return (
+    // Добавили px-4 или mx-auto если нужно, но здесь главное relative
     <div className="mb-16 fade-in-card relative group/list" style={{ animationDelay: '0.2s' }}>
       <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
         <span className="w-1 h-8 bg-blue-500 rounded-full"></span>
@@ -53,22 +54,25 @@ export default function SimilarList({ items, type }: { items: Recommendation[], 
       <div className="relative">
         
         {/* --- ЛЕВАЯ СТРЕЛКА --- */}
+        {/* Изменено: -left-12 (было left-0) чтобы вынести стрелку влево */}
         {canScrollLeft && (
           <button 
             onClick={() => scroll('left')}
-            className="absolute left-0 top-0 bottom-14 z-40 w-20 flex items-center justify-center bg-gradient-to-r from-black via-black/70 to-transparent opacity-0 group-hover/list:opacity-100 transition-opacity duration-300"
+            className="absolute -left-12 lg:-left-16 top-0 bottom-14 z-40 w-16 flex items-center justify-center opacity-0 group-hover/list:opacity-100 transition-opacity duration-300"
           >
-            <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-blue-600 hover:border-blue-500 hover:scale-110 transition-all shadow-lg">
+            {/* Убрали лишний градиент фона, оставили только кнопку, чтобы было чище, или можно вернуть градиент, если нужно */}
+            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-blue-600 hover:border-blue-500 hover:scale-110 transition-all shadow-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </div>
           </button>
         )}
 
         {/* --- КОНТЕЙНЕР СКРОЛЛА --- */}
+        {/* Изменено: pl-2 (было pl-1) для небольшого отступа контента */}
         <div 
           ref={scrollRef}
           onScroll={checkScroll}
-          className="flex overflow-x-auto gap-6 pb-14 pt-2 pl-1 pr-8 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          className="flex overflow-x-auto gap-6 pb-14 pt-2 pl-2 pr-8 snap-x scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
           {items.map((rawItem) => {
             const item = rawItem as ExtendedRecommendation;
@@ -110,10 +114,8 @@ export default function SimilarList({ items, type }: { items: Recommendation[], 
                             mediaId={item.id} 
                             mediaType={type} 
                             compact={true}
-                            // Убрали modal={true}, так как compact={true} уже включает модалку
                         />
                     </div>
-
                     <div 
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                         className="relative z-40 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-100"
@@ -126,16 +128,15 @@ export default function SimilarList({ items, type }: { items: Recommendation[], 
                         />
                     </div>
                   </div>
-
                 </div>
                 
                 <h4 className="mt-4 text-lg font-bold text-slate-200 group-hover:text-white truncate transition-colors px-1">
                   {item.title || item.name}
                 </h4>
                 <div className="flex items-center gap-2 px-1 mt-1">
-                     <span className="text-xs text-slate-500 font-medium border border-white/10 px-1.5 py-0.5 rounded">
+                      <span className="text-xs text-slate-500 font-medium border border-white/10 px-1.5 py-0.5 rounded">
                         {year}
-                     </span>
+                      </span>
                 </div>
               </Link>
             );
@@ -143,17 +144,18 @@ export default function SimilarList({ items, type }: { items: Recommendation[], 
         </div>
 
         {/* --- ПРАВАЯ СТРЕЛКА --- */}
+        {/* Изменено: -right-12 (было right-0) чтобы вынести стрелку вправо */}
         {canScrollRight && (
           <button 
             onClick={() => scroll('right')}
-            className="absolute right-0 top-0 bottom-14 z-40 w-20 flex items-center justify-center bg-gradient-to-l from-black via-black/70 to-transparent opacity-0 group-hover/list:opacity-100 transition-opacity duration-300"
+            className="absolute -right-12 lg:-right-16 top-0 bottom-14 z-40 w-16 flex items-center justify-center opacity-0 group-hover/list:opacity-100 transition-opacity duration-300"
           >
-            <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-blue-600 hover:border-blue-500 hover:scale-110 transition-all shadow-lg">
+             {/* Убрали лишний градиент фона, оставили только кнопку */}
+            <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-blue-600 hover:border-blue-500 hover:scale-110 transition-all shadow-lg">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
           </button>
         )}
-
       </div>
     </div>
   );
