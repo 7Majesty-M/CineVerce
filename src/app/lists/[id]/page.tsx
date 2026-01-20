@@ -1,5 +1,4 @@
 // src/app/lists/[id]/page.tsx
-
 import { db } from '@/db';
 import { lists, listItems, listMembers, users } from '@/db/schema';
 import { auth } from '@/auth'; 
@@ -7,10 +6,8 @@ import { eq, and, desc } from 'drizzle-orm';
 import { notFound, redirect } from 'next/navigation';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
 import Link from 'next/link';
-
 // Импорт навбара
 import Navbar from '@/components/Navbar';
-
 // Импорт компонентов
 import AddMemberButton from '@/components/AddMemberButton';
 import RemoveItemButton from '@/components/RemoveItemButton';
@@ -55,20 +52,27 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
   if (!list.isPublic && !isMember) {
       if (!userId) redirect('/api/auth/signin');
       return (
-        <>
+        <div className="min-h-screen bg-[#050505] text-white font-sans">
             {/* 1. Navbar на странице ошибки доступа */}
             <Navbar />
-            <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
-                <div className="text-center p-8 border border-white/10 rounded-3xl bg-white/5 backdrop-blur-xl">
-                    <div className="text-5xl mb-4">🔒</div>
-                    <h1 className="text-3xl font-bold mb-2">Доступ ограничен</h1>
-                    <p className="text-slate-400 mb-6">Это приватная коллекция. Доступ только по приглашению.</p>
-                    <Link href="/lists" className="px-6 py-2 rounded-full bg-white text-black font-bold hover:bg-slate-200 transition">
-                        Вернуться к моим спискам
+            
+            {/* Фон для страницы ошибки */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-900/10 blur-[120px] rounded-full"></div>
+            </div>
+
+            <div className="relative z-10 min-h-[calc(100vh-80px)] flex items-center justify-center p-6">
+                <div className="text-center p-10 border border-white/10 rounded-[2rem] bg-[#111]/80 backdrop-blur-xl shadow-2xl max-w-lg w-full">
+                    <div className="text-6xl mb-6 bg-gradient-to-br from-red-500 to-pink-600 bg-clip-text text-transparent opacity-80">🔒</div>
+                    <h1 className="text-3xl font-black mb-3">Доступ ограничен</h1>
+                    <p className="text-slate-400 mb-8 text-lg">Это приватная коллекция. Доступ возможен только по приглашению владельца.</p>
+                    <Link href="/lists" className="inline-flex items-center justify-center px-8 py-3 rounded-full bg-white text-black font-bold hover:bg-slate-200 transition-all transform hover:scale-105">
+                        Вернуться к спискам
                     </Link>
                 </div>
             </div>
-        </>
+        </div>
       );
   }
 
@@ -116,22 +120,47 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
 
   const countLabel = getPlural(items.length, 'Фильм', 'Фильма', 'Фильмов');
 
+  // --- ЛОГИКА ТЕМЫ (ГРАДИЕНТЫ) ---
+  // Генерируем цвета на основе ID списка, чтобы они были постоянными для одного списка
+  const getThemeColors = (id: number) => {
+    const themes = [
+        { primary: 'bg-pink-500',  ambientTop: 'bg-pink-900/20', ambientBot: 'bg-rose-900/20' },   // Розовая тема
+        { primary: 'bg-blue-500',  ambientTop: 'bg-blue-900/20', ambientBot: 'bg-indigo-900/20' }, // Синяя тема
+        { primary: 'bg-emerald-500', ambientTop: 'bg-emerald-900/20', ambientBot: 'bg-teal-900/20' }, // Зеленая тема
+        { primary: 'bg-purple-500', ambientTop: 'bg-purple-900/20', ambientBot: 'bg-violet-900/20' }, // Фиолетовая тема
+        { primary: 'bg-orange-500', ambientTop: 'bg-orange-900/20', ambientBot: 'bg-red-900/20' },    // Оранжевая тема
+    ];
+    return themes[id % themes.length];
+  };
+
+  const theme = getThemeColors(listId);
+
   // ------------------------------------------------------------------
   // 3. RENDER
   // ------------------------------------------------------------------
   return (
-    <>
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-white/30">
       {/* 2. Navbar на основной странице */}
       <Navbar />
       
-      <div className="min-h-screen bg-[#050505] text-white pt-32 px-6 pb-20">
-        <div className="max-w-7xl mx-auto">
+      {/* --- BACKGROUND FX (ДИНАМИЧЕСКИЙ ГРАДИЕНТ) --- */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+          {/* Сетка */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+          
+          {/* Динамическое верхнее свечение (зависит от ID списка) */}
+          <div className={`absolute top-0 right-0 w-[800px] h-[800px] ${theme.ambientTop} blur-[120px] rounded-full mix-blend-screen opacity-50`}></div>
+          
+          {/* Динамическое нижнее свечение */}
+          <div className={`absolute bottom-0 left-0 w-[600px] h-[600px] ${theme.ambientBot} blur-[100px] rounded-full mix-blend-screen opacity-30`}></div>
+      </div>
+      
+      <div className="relative z-10 pt-32 px-6 pb-20 max-w-7xl mx-auto">
           
           {/* === HEADER === */}
-          <div className="mb-12 bg-[#111] p-6 md:p-10 rounded-[2.5rem] border border-white/5 relative overflow-hidden group shadow-2xl">
-              {/* Фоновые эффекты */}
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-pink-500/5 blur-[120px] rounded-full pointer-events-none -z-10 group-hover:bg-pink-500/10 transition-colors duration-1000"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[100px] rounded-full pointer-events-none -z-10"></div>
+          <div className="mb-12 bg-[#111]/80 backdrop-blur-md p-6 md:p-10 rounded-[2.5rem] border border-white/10 relative overflow-hidden group shadow-2xl">
+              {/* Фоновые эффекты хедера (тоже зависят от темы) */}
+              <div className={`absolute top-0 right-0 w-[500px] h-[500px] ${theme.primary} blur-[150px] rounded-full pointer-events-none -z-10 opacity-5 group-hover:opacity-10 transition-opacity duration-1000`}></div>
               
               {/* Навигация */}
               <Link href="/lists" className="text-slate-500 hover:text-white text-xs font-bold uppercase tracking-widest mb-8 inline-flex items-center gap-2 transition-colors group/link">
@@ -153,7 +182,6 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
                               </div>
                           </div>
                       )}
-
                       {/* Заголовок (Редактируемый) */}
                       <div className="mb-4">
                           <EditableListTitle 
@@ -181,7 +209,6 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
                               {countLabel}
                           </span>
                       </div>
-
                       {/* Виджет 2: Участники */}
                       <div className="flex flex-col justify-center min-w-[140px] px-6 py-5 bg-white/[0.03] hover:bg-white/[0.06] rounded-3xl border border-white/5 backdrop-blur-md transition-all hover:shadow-xl">
                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-4 text-center">
@@ -210,7 +237,7 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
               </div>
           </div>
 
-          {/* === СЕТКА ФИЛЬМОВ === */}
+          {/* === СЕТКА ФИЛЬМОВ (Без изменений) === */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
               {itemsWithData.map((item, index) => (
                   <div 
@@ -269,8 +296,7 @@ export default async function ListDetailsPage(props: { params: Promise<{ id: str
                   </div>
               )}
           </div>
-        </div>
       </div>
-    </>
+    </div>
   );
 }
