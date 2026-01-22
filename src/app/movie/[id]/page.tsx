@@ -1,7 +1,7 @@
 // src/app/movie/[id]/page.tsx
 
 import { getMovieById, getVideos, getCredits, getRecommendations, getExternalIds } from '../../../lib/tmdb';
-import { findKinopoiskId } from '../../../lib/kinopoisk'; 
+import { findKinopoiskId } from '../../../lib/kinopoisk'; // <-- Убедитесь, что этот файл существует
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db';
 import { watchlist } from '@/db/schema';
@@ -60,17 +60,22 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   if (!movie) notFound();
 
   // 2. ПОДГОТОВКА ДАННЫХ ДЛЯ ПОИСКА
-  // Объявляем переменные ДО их использования в функции поиска
   const finalImdbId = externalIds?.imdb_id || (movie as any).imdb_id;
   const releaseYear = movie.release_date ? Number(movie.release_date.split('-')[0]) : undefined;
 
-  // 3. УМНЫЙ ПОИСК KINOPOISK ID (Идеальная система)
-  const kinopoiskId = await findKinopoiskId({ 
-      imdbId: finalImdbId, 
-      originalTitle: (movie as any).original_title, // <--- ДОБАВИЛИ (movie as any)
-      ruTitle: movie.title,                // Название на русском (т.к. мы запрашиваем ru-RU)
-      year: releaseYear
-  });
+  // 3. УМНЫЙ ПОИСК KINOPOISK ID
+  // Мы восстановили этот блок! Теперь kpId будет найден.
+  let kinopoiskId: number | null = null;
+  try {
+      kinopoiskId = await findKinopoiskId({ 
+          imdbId: finalImdbId, 
+          originalTitle: (movie as any).original_title, 
+          ruTitle: movie.title,
+          year: releaseYear
+      });
+  } catch (e) {
+      console.error('Kinopoisk ID search failed:', e);
+  }
 
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
   const movieRating = userRatings.find(r => r.seasonNumber === null || r.seasonNumber === 0)?.rating || null;
@@ -208,19 +213,22 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
             
             <div className="flex-1 min-w-0">
 
+                {/* --- ОНЛАЙН ПЛЕЕР --- */}
                 <div className="mb-16">
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                         <span className="w-1 h-8 bg-red-500 rounded-full"></span>
                         Смотреть онлайн
                     </h3>
                     
-                    {/* Контейнер плеера */}
                     <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#000]">
-                        <Player 
-                            kpId={kinopoiskId}     // Приоритет 1 (Гарантированно рабочий ID)
-                            imdbId={finalImdbId}   // Приоритет 2
-                            title={movie.title}    // Приоритет 3
-                        />
+<Player 
+  tmdbId={movieId}      // number
+  imdbId={finalImdbId}  // string | null
+  kpId={kinopoiskId}    // number | null
+  title={movie.title}
+  mediaType="movie"
+/>
+
                     </div>
                     
                     {/* Инфо для отладки */}
