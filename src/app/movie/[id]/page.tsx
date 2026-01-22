@@ -67,7 +67,7 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   // 3. УМНЫЙ ПОИСК KINOPOISK ID (Идеальная система)
   const kinopoiskId = await findKinopoiskId({ 
       imdbId: finalImdbId, 
-      originalTitle: movie.original_title, // Название в оригинале (обычно EN)
+      originalTitle: (movie as any).original_title, // <--- ДОБАВИЛИ (movie as any)
       ruTitle: movie.title,                // Название на русском (т.к. мы запрашиваем ru-RU)
       year: releaseYear
   });
