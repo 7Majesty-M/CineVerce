@@ -340,3 +340,28 @@ export async function getTrendingMovies() {
     return [];
   }
 }
+
+export interface ExternalIds {
+  imdb_id: string | null;
+  facebook_id: string | null;
+  instagram_id: string | null;
+  twitter_id: string | null;
+}
+
+// Функция получения внешних ID (IMDb и др.)
+export async function getExternalIds(id: number, type: 'movie' | 'tv'): Promise<ExternalIds | null> {
+  if (!API_KEY) return null;
+  
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}/${type}/${id}/external_ids?api_key=${API_KEY}`,
+      { next: { revalidate: 3600 } }
+    );
+    
+    if (!res.ok) return null;
+    return res.json();
+  } catch (error) {
+    console.error('Error fetching external IDs:', error);
+    return null;
+  }
+}
