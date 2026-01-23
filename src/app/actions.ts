@@ -1,6 +1,5 @@
 // src/app/actions.ts
 'use server';
-
 import { db } from '@/db';
 // Импортируем все таблицы
 import { reviews, follows, users, lists, listMembers, listItems, watchlist, matchSessions, matchVotes } from '@/db/schema';
@@ -531,3 +530,139 @@ export async function getMoviesByGenre(genreId: string, page: number = 1) {
   }
 }
 
+// Удаление списка
+export async function deleteList(listId: number) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) {
+    return { success: false, message: 'Вы не авторизованы' };
+  }
+
+  try {
+    // 1. Проверяем, что список принадлежит пользователю
+    // Мы ищем список с таким ID и таким ownerId
+    const listToDelete = await db
+      .select()
+      .from(lists)
+      .where(and(eq(lists.id, listId), eq(lists.ownerId, userId)))
+      .limit(1);
+
+    if (listToDelete.length === 0) {
+      return { success: false, message: 'Список не найден или у вас нет прав на его удаление' };
+    }
+
+    // 2. Удаляем список
+    // Благодаря onDelete: 'cascade' в schema.ts, 
+    // все элементы списка (listItems) и участники (listMembers) удалятся АВТОМАТИЧЕСКИ.
+    await db.delete(lists).where(eq(lists.id, listId));
+
+    // 3. Обновляем кэш страницы со списками
+    revalidatePath('/lists'); // Замените на путь, где у вас выводятся списки
+    revalidatePath('/profile'); 
+
+    return { success: true, message: 'Список удален' };
+  } catch (error) {
+    console.error('Ошибка при удалении списка:', error);
+    return { success: false, message: 'Ошибка сервера' };
+  }
+}
+
+
+// Вспомогательная функция для получения данных с TMDB
+async function fetchMediaDetails(type: string, id: number) {
+  try {
+    const apiKey = process.env.TMDB_API_KEY;
+    if (!apiKey) return null;
+
+    // Запрашиваем на русском языке
+    const response = await fetch(
+      `https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=ru-RU`
+    );
+    
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function exportList(listId: number) {
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (!userId) {
+    return { success: false, message: 'Вы не авторизованы' };
+  }
+
+  try {
+    // 1. Получаем информацию о самом списке
+    const listsData = await db
+      .select()
+      .from(lists)
+      .where(eq(lists.id, listId))
+      .limit(1);
+
+    const list = listsData[0];
+    if (!list) return { success: false, message: 'Список не найден' };
+
+    // 2. Получаем ID элементов из базы данных
+    const dbItems = await db
+      .select({
+        mediaId: listItems.mediaId,
+        mediaType: listItems.mediaType,
+        comment: listItems.comment,
+      })
+      .from(listItems)
+      .where(eq(listItems.listId, listId));
+
+    // 3. ОБОГАЩАЕМ ДАННЫЕ: Проходим по каждому элементу и скачиваем инфо из TMDB
+    // Используем Promise.all, чтобы запросы шли параллельно (быстрее)
+    const enrichedItems = await Promise.all(
+      dbItems.map(async (item) => {
+        const details = await fetchMediaDetails(item.mediaType, item.mediaId);
+
+        if (!details) {
+          // Если фильм удален из TMDB или ошибка, возвращаем хотя бы ID
+          return { ...item, error: 'Data not found' };
+        }
+
+        // Определяем поля (у фильмов title, у сериалов name)
+        const title = details.title || details.name;
+        const originalTitle = details.original_title || details.original_name;
+        const releaseDate = details.release_date || details.first_air_date;
+        
+        return {
+          // Данные из вашей базы (комментарий пользователя)
+          userComment: item.comment,
+          mediaType: item.mediaType,
+          mediaId: item.mediaId,
+          
+          // Данные из TMDB (то, что вы хотели)
+          title: title,
+          originalTitle: originalTitle,
+          year: releaseDate ? releaseDate.split('-')[0] : 'N/A',
+          rating: details.vote_average ? Number(details.vote_average.toFixed(1)) : 0,
+          posterPath: details.poster_path,
+          overview: details.overview,
+        };
+      })
+    );
+
+    // 4. Формируем итоговый объект
+    const exportData = {
+      meta: {
+        listName: list.name,
+        description: list.description,
+        totalItems: enrichedItems.length,
+        exportedAt: new Date().toISOString(),
+      },
+      items: enrichedItems,
+    };
+
+    return { success: true, data: exportData };
+  } catch (error) {
+    console.error('Export error:', error);
+    return { success: false, message: 'Ошибка при формировании файла' };
+  }
+}

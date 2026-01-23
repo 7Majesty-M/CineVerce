@@ -94,7 +94,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
   
   // История
-  const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime()).slice(0, 5);
+  const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime());
 
   const history = await Promise.all(
     sortedReviews.map(async (review) => {

@@ -78,26 +78,6 @@ export default function Player({
 
   return (
     <div className={`flex flex-col gap-4 w-full h-full ${className}`}>
-      
-      <div className="flex flex-col gap-3 p-3 bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] border border-white/5 rounded-xl shadow-lg">
-        <div className="flex bg-black/40 p-1 rounded-lg border border-white/5 items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-300">
-                    👑 VidKing Player
-                </span>
-                <span className="text-[9px] uppercase tracking-wider text-green-500 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">
-                    🛡️ Protected
-                </span>
-            </div>
-            
-            {mediaType === 'tv' && (
-                <span className="text-[10px] text-slate-400 font-mono">
-                    S{season || 1} E{episode || 1}
-                </span>
-            )}
-        </div>
-      </div>
-
       <div className="relative group w-full aspect-video min-h-[500px] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10">
         {currentSrc ? (
           <>
@@ -139,11 +119,11 @@ export default function Player({
         )}
       </div>
       
-      <div className="flex justify-center mt-2">
+      {/* <div className="flex justify-center mt-2">
          <p className="text-[11px] text-slate-500 bg-white/5 px-3 py-1 rounded-full border border-white/5">
             💡 Если плеер не запускается, нажмите кнопку обновления ↻ в углу
          </p>
-      </div>
+      </div> */}
     </div>
   );
 }

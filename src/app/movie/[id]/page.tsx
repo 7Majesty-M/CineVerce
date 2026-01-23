@@ -232,13 +232,13 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     </div>
                     
                     {/* Инфо для отладки */}
-                    <div className="mt-2 text-[10px] text-slate-600 font-mono flex gap-3">
+                    {/* <div className="mt-2 text-[10px] text-slate-600 font-mono flex gap-3">
                         <span>TMDB: {movieId}</span>
                         <span>IMDb: {finalImdbId || 'N/A'}</span>
                         <span className={kinopoiskId ? "text-green-600" : "text-red-900"}>
                           KP: {kinopoiskId || 'Not found'}
                         </span>
-                    </div>
+                    </div> */}
                 </div>
 
                 <div className="mb-16">

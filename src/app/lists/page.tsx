@@ -1,9 +1,10 @@
-// src/app/lists/page.tsx
 import { db } from '@/db';
 import { listMembers, lists } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { auth } from '@/auth';
 import CreateListButton from '@/components/CreateListButton';
+import DeleteListButton from '@/components/DeleteListButton';
+import ExportListButton from '@/components/ExportListButton'; // Убедитесь, что импорт есть
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 
@@ -39,7 +40,7 @@ export default async function ListsPage() {
   .where(eq(listMembers.userId, userId))
   .orderBy(desc(lists.createdAt));
 
-  // --- ИСПРАВЛЕННАЯ ФУНКЦИЯ ---
+  // --- ФУНКЦИЯ ЦВЕТОВ ---
   const getGradient = (id: number | string) => {
     const variants = [
         'from-pink-500 via-rose-500 to-yellow-500',
@@ -48,7 +49,6 @@ export default async function ListsPage() {
         'from-orange-400 via-red-500 to-pink-500',
         'from-violet-500 via-purple-500 to-fuchsia-500',
     ];
-    // Добавлено String(id), чтобы избежать ошибки .split is not a function
     const index = String(id).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % variants.length;
     return variants[index];
   };
@@ -80,10 +80,14 @@ export default async function ListsPage() {
                 </p>
             </div>
             
-            <div className="shrink-0 relative group">
-               <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-500"></div>
-               <div className="relative">
-                   <CreateListButton />
+            {/* КНОПКИ ДЕЙСТВИЙ (Импорт убран) */}
+            <div className="shrink-0 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+               {/* Кнопка создания */}
+               <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-500"></div>
+                  <div className="relative">
+                      <CreateListButton />
+                  </div>
                </div>
             </div>
         </div>
@@ -92,68 +96,83 @@ export default async function ListsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             
             {myLists.map(list => {
-              // Получаем цвета для конкретной карточки
               const gradientColors = getGradient(list.id);
               
               return (
-                <Link key={list.id} href={`/lists/${list.id}`} className="group relative block h-full">
+                <div key={list.id} className="relative group block h-full"> 
                     
-                    {/* --- 1. ФОНОВОЕ СВЕЧЕНИЕ (GLOW) --- */}
-                    {/* Это слой ПОД карточкой. Он создает эффект цветной границы и свечения. */}
-                    <div className={`absolute -inset-[1px] bg-gradient-to-br ${gradientColors} rounded-[2rem] opacity-30 group-hover:opacity-100 group-hover:blur-md transition duration-500`}></div>
+                    {/* ПАНЕЛЬ ДЕЙСТВИЙ (ЭКСПОРТ + УДАЛЕНИЕ) */}
+                    <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                        {/* Кнопка Экспорта (доступна всем, кто видит список) */}
+                        <div className="bg-black/50 backdrop-blur-sm rounded-full">
+                            <ExportListButton listId={list.id} listName={list.name || 'List'} />
+                        </div>
 
-                    {/* --- 2. ОСНОВНОЕ ТЕЛО КАРТОЧКИ --- */}
-                    {/* relative z-10 поднимает контент над свечением */}
-                    <div className="relative z-10 h-full bg-[#0E0E0E] rounded-[2rem] overflow-hidden flex flex-col transition-transform duration-300 group-hover:-translate-y-1">
+                        {/* Кнопка Удаления (только админ) */}
+                        {list.role === 'admin' && (
+                            <div className="bg-black/50 backdrop-blur-sm rounded-full">
+                                <DeleteListButton listId={list.id} />
+                            </div>
+                        )}
+                    </div>
+
+                    <Link href={`/lists/${list.id}`} className="block h-full">
                         
-                        {/* Верхняя часть (Обложка) */}
-                        <div className={`h-32 bg-gradient-to-br ${gradientColors} opacity-80 relative overflow-hidden`}>
-                            <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+                        {/* --- 1. ФОНОВОЕ СВЕЧЕНИЕ (GLOW) --- */}
+                        <div className={`absolute -inset-[1px] bg-gradient-to-br ${gradientColors} rounded-[2rem] opacity-30 group-hover:opacity-100 group-hover:blur-md transition duration-500`}></div>
+
+                        {/* --- 2. ОСНОВНОЕ ТЕЛО КАРТОЧКИ --- */}
+                        <div className="relative z-10 h-full bg-[#0E0E0E] rounded-[2rem] overflow-hidden flex flex-col transition-transform duration-300 group-hover:-translate-y-1">
                             
-                            <div className="absolute top-4 left-4 flex gap-2">
-                                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border ${
-                                    list.isPublic 
-                                    ? 'bg-black/20 text-white border-white/20' 
-                                    : 'bg-black/40 text-white/70 border-white/10'
-                                }`}>
-                                    {list.isPublic ? 'Public' : 'Private'}
+                            {/* Верхняя часть (Обложка) */}
+                            <div className={`h-32 bg-gradient-to-br ${gradientColors} opacity-80 relative overflow-hidden`}>
+                                <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+                                
+                                <div className="absolute top-4 left-4 flex gap-2">
+                                    <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border ${
+                                        list.isPublic 
+                                        ? 'bg-black/20 text-white border-white/20' 
+                                        : 'bg-black/40 text-white/70 border-white/10'
+                                    }`}>
+                                        {list.isPublic ? 'Public' : 'Private'}
+                                    </div>
+                                </div>
+
+                                <div className="absolute bottom-3 left-6 w-14 h-14 bg-[#0E0E0E] rounded-2xl flex items-center justify-center p-1 shadow-xl">
+                                    <div className="w-full h-full bg-white/5 rounded-xl flex items-center justify-center border border-white/10 text-xl">
+                                        📁
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="absolute bottom-3 left-6 w-14 h-14 bg-[#0E0E0E] rounded-2xl flex items-center justify-center p-1 shadow-xl">
-    <div className="w-full h-full bg-white/5 rounded-xl flex items-center justify-center border border-white/10 text-xl">
-        📁
-    </div>
-</div>
-                        </div>
+                            {/* Контент */}
+                            <div className="p-6 pt-10 flex flex-col flex-grow">
+                                <div className="flex justify-between items-start mb-2">
+                                    <h3 className="text-2xl font-bold text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all line-clamp-1">
+                                        {list.name}
+                                    </h3>
+                                    <svg className="w-5 h-5 text-slate-600 group-hover:text-white -rotate-45 group-hover:rotate-0 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                </div>
 
-                        {/* Контент */}
-                        <div className="p-6 pt-10 flex flex-col flex-grow">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-2xl font-bold text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-slate-400 transition-all line-clamp-1">
-                                    {list.name}
-                                </h3>
-                                <svg className="w-5 h-5 text-slate-600 group-hover:text-white -rotate-45 group-hover:rotate-0 transition-all duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg>
-                            </div>
+                                <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed mb-6 font-medium">
+                                    {list.description || "Нет описания"}
+                                </p>
 
-                            <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed mb-6 font-medium">
-                                {list.description || "Нет описания"}
-                            </p>
-
-                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-                                <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
-                                    {new Date(list.createdAt!).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </span>
-                                
-                                {list.role === 'admin' && (
-                                    <span className="text-xs text-white/30 font-medium px-2 py-0.5 rounded bg-white/5">Владелец</span>
-                                )}
+                                <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
+                                    <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">
+                                        {new Date(list.createdAt!).toLocaleDateString('ru-RU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                    
+                                    {list.role === 'admin' && (
+                                        <span className="text-xs text-white/30 font-medium px-2 py-0.5 rounded bg-white/5">Владелец</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Link>
+                    </Link>
+                </div>
               );
             })}
 
@@ -172,8 +191,15 @@ export default async function ListsPage() {
                     <p className="text-slate-500 max-w-md mx-auto mb-8 leading-relaxed">
                         Списки помогают структурировать то, что вы хотите посмотреть.
                     </p>
-                    <div className="inline-block">
-                         <CreateListButton />
+
+                    <div className="flex flex-col gap-3 items-center">
+                         <div className="inline-block relative group">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-25 group-hover:opacity-75 transition duration-500"></div>
+                            <div className="relative">
+                                <CreateListButton />
+                            </div>
+                         </div>
+                         {/* Кнопка импорта убрана отсюда */}
                     </div>
                  </div>
               </div>
