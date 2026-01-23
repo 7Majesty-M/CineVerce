@@ -1,6 +1,9 @@
 // src/app/tv/[id]/page.tsx
 
-import { getTVShowById, getVideos, getCredits, getRecommendations } from '../../../lib/tmdb';
+import TVPlayerSection from '@/components/TVPlayerSection'; // <-- Убедитесь, что импорт есть
+
+import { getTVShowById, getVideos, getCredits, getRecommendations, getExternalIds } from '../../../lib/tmdb';
+import { findKinopoiskId } from '../../../lib/kinopoisk';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db'; 
 import { watchlist } from '@/db/schema'; 
@@ -32,26 +35,53 @@ interface ExtendedTVShow {
   genres?: { id: number; name: string }[];
   first_air_date?: string;
   last_air_date?: string;
+  // Добавляем типизацию сезонов, чтобы не было ошибок при передаче в TVPlayerSection
+  seasons: { 
+      id: number; 
+      name: string; 
+      season_number: number; 
+      episode_count: number; 
+      poster_path?: string;
+      air_date?: string;
+      overview?: string;
+  }[];
 }
 
 export default async function TVShowPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const showId = Number(params.id);
   
-  const [show, userRatings, videos, cast, similar] = await Promise.all([
+  // 1. ЗАПРАШИВАЕМ ДАННЫЕ ОТ TMDB (Добавили getExternalIds)
+  const [show, userRatings, videos, cast, similar, externalIds] = await Promise.all([
     getTVShowById(params.id),
     getUserRatings(showId, 'tv'),
     getVideos(showId, 'tv'),
     getCredits(showId, 'tv'),        
-    getRecommendations(showId, 'tv') 
+    getRecommendations(showId, 'tv'),
+    getExternalIds(showId, 'tv') // Получаем внешние ID (IMDb и т.д.)
   ]);
 
   if (!show) notFound();
 
   // Приводим к расширенному типу для удобства
   const details = show as unknown as ExtendedTVShow;
-
   const trailerKey = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube')?.key || null;
+
+  // 2. ПОИСК KINOPOISK ID (Для возможных русских плееров)
+  const finalImdbId = externalIds?.imdb_id;
+  const releaseYear = show.first_air_date ? Number(show.first_air_date.split('-')[0]) : undefined;
+
+  let kinopoiskId: number | null = null;
+  try {
+      kinopoiskId = await findKinopoiskId({ 
+          imdbId: finalImdbId, 
+          originalTitle: details.original_name, 
+          ruTitle: show.name,
+          year: releaseYear,
+      });
+  } catch (e) {
+      console.error('Kinopoisk ID search failed:', e);
+  }
 
   // Расчет рейтинга
   const ratedSeasons = userRatings.filter(r => r.seasonNumber !== null && r.seasonNumber > 0);
@@ -69,8 +99,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
       if (r.seasonNumber !== null) seasonRatingsMap.set(r.seasonNumber, r.rating); 
   });
 
-  const releaseYear = show.first_air_date?.split('-')[0];
-  
   // Watchlist
    const session = await auth(); 
    const userId = session?.user?.id; 
@@ -82,7 +110,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
         eq(watchlist.mediaType, 'tv')
     ));
     isInWatchlist = check.length > 0;
-   }
+   } 
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-pink-500/30">
@@ -174,7 +202,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                         </div>
                     )}
                     
-                    {/* EPISODES (Исправлено: details.number_of_episodes) */}
+                    {/* EPISODES */}
                     {details.number_of_episodes && (
                         <>
                              <div className="w-1 h-1 rounded-full bg-slate-500" />
@@ -185,7 +213,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                              </div>
                         </>
                     )}
-
                  </div>
                  
                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tight text-white mb-6 drop-shadow-2xl max-w-4xl animate-in fade-in slide-in-from-bottom-6 duration-700 delay-100">{show.name}</h1>
@@ -205,20 +232,20 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
 
                  {/* Actions */}
-<div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
-    
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
-        <div className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-default select-none transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent'}`}>
-            {hasUserRated ? <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></> : <span className="opacity-70 text-xs uppercase tracking-wide">Оцените сезоны ниже ↓</span>}
-        </div>
-        
-        <div className="hidden sm:block w-px h-6 bg-white/10" />
-        <div className="sm:scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} /></div>
-        <div className="hidden sm:block w-px h-6 bg-white/10" />
-        <div className="sm:scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} /></div>
-    </div>
-</div>
+                 <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+                    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
+                        <div className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-default select-none transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent'}`}>
+                            {hasUserRated ? <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></> : <span className="opacity-70 text-xs uppercase tracking-wide">Оцените сезоны ниже ↓</span>}
+                        </div>
+                        
+                        <div className="hidden sm:block w-px h-6 bg-white/10" />
+                        <div className="sm:scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} /></div>
+                        <div className="hidden sm:block w-px h-6 bg-white/10" />
+                        <div className="sm:scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} /></div>
+                    </div>
+                 </div>
               </div>
             </div>
           </div>
@@ -232,6 +259,16 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
             
             {/* Left Content */}
             <div className="flex-1 min-w-0">
+                
+                {/* --- ОНЛАЙН ПЛЕЕР С ВЫБОРОМ СЕРИЙ --- */}
+                <TVPlayerSection 
+                    tmdbId={String(showId)}
+                    kpId={kinopoiskId}
+                    imdbId={finalImdbId ?? null} // <-- ИСПРАВЛЕНО: добавляем ?? null
+                    showName={show.name}
+                    seasons={details.seasons} // Передаем данные о сезонах
+                />
+
                 <div className="mb-16">
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3"><span className="w-1 h-8 bg-pink-500 rounded-full"></span>Сюжет</h3>
                     <p className="text-lg md:text-xl text-slate-400 leading-relaxed font-light whitespace-pre-line">{show.overview || "Описание отсутствует."}</p>
@@ -256,11 +293,10 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                         </h4>
                         
                         <div className="flex flex-col gap-5">
-                            
                             {/* 1. Оригинал */}
                             {details.original_name && show.name !== details.original_name && (
                                 <div className="flex flex-col gap-1 border-b border-white/5 pb-3">
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинал</span>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Оригинальное название</span>
                                     <span className="text-sm font-bold text-white leading-tight">
                                         {details.original_name}
                                     </span>
@@ -380,6 +416,7 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                         {/* Info */}
                         <div className="flex-1 p-5 flex flex-col justify-between bg-gradient-to-r from-[#0a0a0a] to-[#111] relative rounded-r-2xl">
                            <div className="absolute top-0 right-0 w-16 h-16 bg-pink-500/5 blur-2xl rounded-full pointer-events-none group-hover:bg-pink-500/10 transition-colors"></div>
+                           
                            <div>
                               <h3 className="font-bold text-xl text-white group-hover:text-pink-400 transition-colors line-clamp-1 mb-1">{season.name}</h3>
                               <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider relative z-10">
@@ -397,8 +434,8 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                                  href={`/tv/${show.id}/season/${season.season_number}/rate`}
                                  className={`group/btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 w-fit
                                      ${isRatedSeason 
-                                         ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20' 
-                                         : 'bg-white/5 border-white/10 hover:bg-pink-600 hover:border-pink-500 hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]'
+                                       ? 'bg-green-500/10 border-green-500/50 hover:bg-green-500/20' 
+                                       : 'bg-white/5 border-white/10 hover:bg-pink-600 hover:border-pink-500 hover:shadow-[0_0_20px_rgba(236,72,153,0.4)]'
                                      }
                                  `}
                              >
