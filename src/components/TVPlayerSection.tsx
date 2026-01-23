@@ -117,11 +117,11 @@ export default function TVPlayerSection({
         </div>
         
         {/* Инфо (для отладки можно удалить) */}
-        <div className="mt-3 flex gap-4 text-[10px] text-slate-600 font-mono pl-2">
+        {/* <div className="mt-3 flex gap-4 text-[10px] text-slate-600 font-mono pl-2">
             <span>S{currentSeason} E{currentEpisode}</span>
             <span>TMDB: {tmdbId}</span>
             <span className={kpId ? "text-green-600" : "text-red-900"}>KP: {kpId || '—'}</span>
-        </div>
+        </div> */}
     </div>
   );
 }
