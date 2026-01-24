@@ -1,7 +1,7 @@
 // src/app/tv/[id]/page.tsx
 
 import TVPlayerSection from '@/components/TVPlayerSection'; // <-- Убедитесь, что импорт есть
-
+import LogWatchedButton from '@/components/LogWatchedButton';
 import { getTVShowById, getVideos, getCredits, getRecommendations, getExternalIds } from '../../../lib/tmdb';
 import { findKinopoiskId } from '../../../lib/kinopoisk';
 import { getUserRatings } from '../../../lib/db-queries';
@@ -244,6 +244,15 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                         <div className="sm:scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} /></div>
                         <div className="hidden sm:block w-px h-6 bg-white/10" />
                         <div className="sm:scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} /></div>
+                        <div className="hidden sm:block w-px h-6 bg-white/10" />
+                        {/* Сама кнопка в обертке для масштабирования */}
+<div className="sm:scale-90">
+    <LogWatchedButton 
+        mediaId={show.id}    
+        mediaType="tv" 
+        title={show.name}   
+    />
+</div>
                     </div>
                  </div>
               </div>

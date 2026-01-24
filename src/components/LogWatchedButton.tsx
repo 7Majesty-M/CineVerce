@@ -236,10 +236,13 @@ export default function LogWatchedButton({
             </svg>
         </div>
 
-        <div className="flex flex-col mr-6">
-            <span className="text-sm font-bold text-white">Успешно!</span>
-            <span className="text-xs text-slate-400 font-medium">Фильм добавлен в историю</span>
-        </div>
+<div className="flex flex-col mr-6">
+    <span className="text-sm font-bold text-white">Успешно!</span>
+    <span className="text-xs text-slate-400 font-medium">
+        {mediaType === 'movie' ? 'Фильм добавлен' : 'Сериал добавлен'} в историю
+    </span>
+</div>
+
 
         {/* Прогресс бар (анимация таймера) */}
         <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-white/10 rounded-full overflow-hidden">

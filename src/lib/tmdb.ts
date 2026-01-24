@@ -365,3 +365,23 @@ export async function getExternalIds(id: number, type: 'movie' | 'tv'): Promise<
     return null;
   }
 }
+export async function getContentByYear(year: number, type: 'movie' | 'tv' = 'movie') {
+  const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
+  const dateParam = type === 'movie' ? 'primary_release_year' : 'first_air_date_year';
+
+  try {
+    const res = await fetch(
+      `${TMDB_BASE_URL}${endpoint}?api_key=${process.env.TMDB_API_KEY}&language=ru-RU&sort_by=vote_count.desc&${dateParam}=${year}&page=1&vote_average.gte=5`,
+      { next: { revalidate: 3600 } }
+    );
+    
+    if (!res.ok) throw new Error('Failed to fetch time machine data');
+    const data = await res.json();
+    
+    // Возвращаем топ-20
+    return data.results || [];
+  } catch (error) {
+    console.error('Time Machine Fetch Error:', error);
+    return [];
+  }
+}
