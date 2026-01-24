@@ -5,13 +5,24 @@ import { toggleFollow, getProfileStats } from '@/app/actions';
 import { useRouter } from 'next/navigation';
 
 interface ProfileHeaderProps {
-  user: any;
+  user: {
+    firstName: string;
+    lastName: string;
+    imageUrl: string;
+  };
   stats: {
     followers: number;
     following: number;
     reviews: number;
+    watched: number; // <-- Добавлено
   };
-  level: any;
+  level: {
+    name: string;
+    next: number;
+    progress: number;
+    color: string;
+    bg: string;
+  };
   isOwnProfile: boolean;
   isFollowing: boolean;
   targetUserId: string;
@@ -30,6 +41,9 @@ export default function ProfileHeader({
   const [followersCount, setFollowersCount] = useState(stats.followers);
   const [followingCount, setFollowingCount] = useState(stats.following);
   
+  // Добавляем состояние для watched, на случай если оно тоже будет обновляться в реальном времени
+  const [watchedCount, setWatchedCount] = useState(stats.watched);
+
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -38,21 +52,21 @@ export default function ProfileHeader({
     const refreshStats = async () => {
       // Если вкладка не активна (юзер ушел на другую), не долбим сервер
       if (document.hidden) return;
-
+      
       const newStats = await getProfileStats(targetUserId);
       if (newStats) {
         // Обновляем только если цифры изменились, чтобы React не делал лишних рендеров
         setFollowersCount(prev => (prev !== newStats.followers ? newStats.followers : prev));
         setFollowingCount(prev => (prev !== newStats.following ? newStats.following : prev));
+        // Если в getProfileStats добавите watched, можно и его обновлять:
+        // setWatchedCount(newStats.watched);
       }
     };
 
-    // Опрашиваем каждые 2 секунды (это быстро и почти не нагружает базу)
-    const interval = setInterval(refreshStats, 2000);
-
+    // Опрашиваем каждые 5 секунд (чуть увеличил интервал для оптимизации)
+    const interval = setInterval(refreshStats, 5000);
     return () => clearInterval(interval);
   }, [targetUserId]);
-
 
   const handleFollow = async () => {
     // 1. Оптимистичное обновление (Мгновенно для меня)
@@ -63,9 +77,11 @@ export default function ProfileHeader({
     // 2. Отправляем на сервер
     startTransition(async () => {
       const res = await toggleFollow(targetUserId);
+      
       if (res.success) {
         router.refresh();
       } else {
+        // Откат при ошибке
         setIsFollowing(!newState);
         setFollowersCount(prev => newState ? prev - 1 : prev + 1);
         alert("Ошибка при подписке");
@@ -75,6 +91,7 @@ export default function ProfileHeader({
 
   return (
     <div className="relative h-96 w-full overflow-hidden">
+         {/* ФОНЫ */}
          <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/40 via-[#050505]/90 to-[#050505] z-0"></div>
          <div className="absolute top-0 inset-x-0 h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 mix-blend-overlay z-0"></div>
          <div className="absolute top-[-50%] left-[20%] w-[60%] h-[150%] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none"></div>
@@ -82,10 +99,18 @@ export default function ProfileHeader({
          <div className="container mx-auto px-6 relative z-10 h-full flex flex-col justify-end pb-8">
             <div className="flex flex-col md:flex-row items-end md:items-center gap-8">
                 
+                {/* АВАТАР */}
                 <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] border-4 border-[#050505] shadow-2xl overflow-hidden relative group">
-                    <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    {user.imageUrl ? (
+                        <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-3xl font-bold text-white">
+                            {user.firstName[0]}
+                        </div>
+                    )}
                 </div>
                 
+                {/* ИНФОРМАЦИЯ О ЮЗЕРЕ */}
                 <div className="flex-1 mb-2">
                     <div className="flex items-center gap-3 mb-2">
                         <span className={`px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest ${level.color}`}>
@@ -98,9 +123,9 @@ export default function ProfileHeader({
                         {user.firstName} {user.lastName}
                     </h1>
                     
+                    {/* СТАТИСТИКА */}
                     <div className="flex flex-wrap items-center gap-6 text-sm font-bold text-slate-400 mb-4">
                         <div className="flex items-center gap-2">
-                            {/* Анимация цифры */}
                             <span className="text-white text-lg transition-all duration-300">
                                 {followersCount}
                             </span> 
@@ -112,11 +137,19 @@ export default function ProfileHeader({
                             </span> 
                             Подписок
                         </div>
+                        
+                        {/* Оценки */}
                         <div className="flex items-center gap-2">
                             <span className="text-white text-lg">{stats.reviews}</span> Оценок
                         </div>
+
+                        {/* --- НОВОЕ: Просмотрено --- */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-white text-lg">{watchedCount}</span> Просмотрено
+                        </div>
                     </div>
 
+                    {/* ШКАЛА УРОВНЯ */}
                     <div className="w-full max-w-md">
                         <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                             <div className={`h-full ${level.bg} shadow-[0_0_15px_currentColor] transition-all duration-1000`} style={{ width: `${level.progress}%` }}></div>
@@ -124,6 +157,7 @@ export default function ProfileHeader({
                     </div>
                 </div>
 
+                {/* КНОПКИ ДЕЙСТВИЙ */}
                 <div className="flex flex-col gap-3">
                     {!isOwnProfile && targetUserId && (
                         <button
@@ -142,11 +176,10 @@ export default function ProfileHeader({
                     
                     {isOwnProfile && (
                         <div className="text-center mb-4">
-  <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 drop-shadow-sm">
-    Добро пожаловать в Вашу вселенную! ✨
-  </span>
-</div>
-
+                          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 drop-shadow-sm">
+                            Добро пожаловать в Вашу вселенную! ✨
+                          </span>
+                        </div>
                     )}
                 </div>
             </div>

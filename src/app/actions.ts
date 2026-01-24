@@ -1,12 +1,13 @@
 // src/app/actions.ts
 'use server';
 import { db } from '@/db';
-// Импортируем все таблицы
+import { watchedHistory } from '@/db/schema';
 import { reviews, follows, users, lists, listMembers, listItems, watchlist, matchSessions, matchVotes } from '@/db/schema';
 import { auth } from '@/auth'; // NextAuth
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, count, sql } from 'drizzle-orm';
 import { getMovieById, searchMulti, getPopularMovies, getPopularTVShows } from '@/lib/tmdb';
+import { favorites } from '@/db/schema';
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
 export async function updateListName(listId: number, newName: string) {
@@ -685,5 +686,125 @@ export async function exportList(listId: number) {
   } catch (error) {
     console.error('Export error:', error);
     return { success: false, message: 'Ошибка при формировании файла' };
+  }
+}
+
+export async function logMovie(mediaId: number, mediaType: string, dateStr: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, message: 'Нужна авторизация' };
+
+  try {
+    await db.insert(watchedHistory).values({
+      userId: session.user.id,
+      mediaId,
+      mediaType,
+      watchedAt: dateStr, // Ожидаем строку вида '2023-10-25'
+    });
+    
+    return { success: true };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: 'Ошибка сохранения' };
+  }
+}
+export async function logWatched(mediaId: number, mediaType: string, dateStr: string) {
+  const session = await auth();
+  
+  if (!session?.user?.id) {
+    return { success: false, message: 'Нужна авторизация' };
+  }
+
+  try {
+    // 1. ПРОВЕРКА НА ДУБЛИКАТЫ
+    // Ищем запись с таким же userId, mediaId И такой же датой
+    const existingEntry = await db.select()
+      .from(watchedHistory)
+      .where(and(
+        eq(watchedHistory.userId, session.user.id),
+        eq(watchedHistory.mediaId, mediaId),
+        eq(watchedHistory.watchedAt, dateStr) // Проверяем именно дату
+      ))
+      .limit(1);
+
+    if (existingEntry.length > 0) {
+      return { 
+        success: false, 
+        message: 'Вы уже отметили этот фильм в эту дату.' 
+      };
+    }
+
+    // 2. ЕСЛИ ДУБЛИКАТА НЕТ - СОХРАНЯЕМ
+    await db.insert(watchedHistory).values({
+      userId: session.user.id,
+      mediaId,
+      mediaType,
+      watchedAt: dateStr,
+    });
+
+    revalidatePath('/profile'); 
+    revalidatePath(`/movie/${mediaId}`);
+    revalidatePath(`/tv/${mediaId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Log watched error:', error);
+    return { success: false, message: 'Ошибка сохранения' };
+  }
+}
+export async function searchForFavorites(query: string) {
+  if (!query) return [];
+  const apiKey = process.env.TMDB_API_KEY;
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/search/multi?api_key=${apiKey}&language=ru-RU&query=${encodeURIComponent(query)}&page=1`
+    );
+    const data = await res.json();
+    // Фильтруем только фильмы и сериалы с картинками
+    return data.results
+      .filter((i: any) => (i.media_type === 'movie' || i.media_type === 'tv') && i.poster_path)
+      .slice(0, 5); // Возвращаем топ-5
+  } catch (e) {
+    return [];
+  }
+}
+
+// Сохранить фаворит
+export async function setFavorite(mediaId: number, mediaType: string, slotIndex: number) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false };
+
+  try {
+    await db.insert(favorites).values({
+      userId: session.user.id,
+      mediaId,
+      mediaType,
+      slotIndex
+    }).onConflictDoUpdate({
+      target: [favorites.userId, favorites.slotIndex],
+      set: { mediaId, mediaType }
+    });
+
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (e) {
+    console.error(e);
+    return { success: false };
+  }
+}
+
+// Удалить фаворит
+export async function removeFavorite(slotIndex: number) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false };
+
+  try {
+    await db.delete(favorites).where(and(
+      eq(favorites.userId, session.user.id),
+      eq(favorites.slotIndex, slotIndex)
+    ));
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (e) {
+    return { success: false };
   }
 }

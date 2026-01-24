@@ -1,6 +1,7 @@
 // src/db/schema.ts
-import { pgTable, text, integer, timestamp, uniqueIndex, serial, real, jsonb, primaryKey, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, uniqueIndex, serial, real, jsonb, primaryKey, boolean, date } from "drizzle-orm/pg-core";
 import type { AdapterAccount } from "next-auth/adapters";
+import { relations } from 'drizzle-orm';
 
 // 1. Таблица Пользователей
 export const users = pgTable("user", {
@@ -183,4 +184,34 @@ export const matchVotes = pgTable("match_votes", {
 }, (t) => ({
   // Один юзер голосует за фильм один раз в рамках сессии
   unq: uniqueIndex("unique_session_vote").on(t.sessionId, t.userId, t.mediaId),
+}));
+
+export const watchedHistory = pgTable('watched_history', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  mediaId: integer('media_id').notNull(),   // ID фильма из TMDB
+  mediaType: text('media_type').notNull(),  // 'movie' или 'tv'
+  watchedAt: date('watched_at').notNull(),  // Дата просмотра (именно день)
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Связи (если нужно)
+export const watchedHistoryRelations = relations(watchedHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [watchedHistory.userId],
+    references: [users.id],
+  }),
+}));
+
+export const favorites = pgTable('favorites', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  mediaId: integer('media_id').notNull(),
+  mediaType: text('media_type').notNull(), // 'movie' | 'tv'
+  
+  slotIndex: integer('slot_index').notNull(), // 0, 1, 2, 3 (позиция)
+}, (t) => ({
+  // Один слот - один фильм для юзера
+  unq: uniqueIndex('unique_user_slot').on(t.userId, t.slotIndex),
 }));

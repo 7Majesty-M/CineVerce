@@ -1,7 +1,7 @@
 // src/app/movie/[id]/page.tsx
 
 import { getMovieById, getVideos, getCredits, getRecommendations, getExternalIds } from '../../../lib/tmdb';
-import { findKinopoiskId } from '../../../lib/kinopoisk'; // <-- Убедитесь, что этот файл существует
+import { findKinopoiskId } from '../../../lib/kinopoisk';
 import { getUserRatings } from '../../../lib/db-queries';
 import { db } from '@/db';
 import { watchlist } from '@/db/schema';
@@ -16,6 +16,7 @@ import CastList from '@/components/CastList';
 import SimilarList from '@/components/SimilarList';
 import Navbar from '@/components/Navbar'; 
 import Player from '@/components/Player';
+import LogWatchedButton from '@/components/LogWatchedButton'; // <-- 1. ИМПОРТ КНОПКИ
 
 // --- ТИПИЗАЦИЯ ---
 interface ExtendedMovie {
@@ -64,7 +65,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
   const releaseYear = movie.release_date ? Number(movie.release_date.split('-')[0]) : undefined;
 
   // 3. УМНЫЙ ПОИСК KINOPOISK ID
-  // Мы восстановили этот блок! Теперь kpId будет найден.
   let kinopoiskId: number | null = null;
   try {
       kinopoiskId = await findKinopoiskId({ 
@@ -199,8 +199,20 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                         
                         <div className="hidden sm:block w-px h-6 bg-white/10" />
                         <div className="sm:scale-90"><WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} /></div>
+                        
                         <div className="hidden sm:block w-px h-6 bg-white/10" />
                         <div className="sm:scale-90"><AddToListDropdown mediaId={movie.id} mediaType="movie" /></div>
+
+                        {/* --- 2. НОВАЯ КНОПКА "ПРОСМОТРЕНО" --- */}
+                        <div className="hidden sm:block w-px h-6 bg-white/10" />
+                        <div className="sm:scale-90">
+                            <LogWatchedButton 
+                                mediaId={movie.id} 
+                                mediaType="movie" 
+                                title={movie.title} 
+                            />
+                        </div>
+                        
                     </div>
                  </div>
               </div>
@@ -212,7 +224,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
         <div className="flex flex-col lg:flex-row gap-16">
             
             <div className="flex-1 min-w-0">
-
                 {/* --- ОНЛАЙН ПЛЕЕР --- */}
                 <div className="mb-16">
                     <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -221,24 +232,14 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     </h3>
                     
                     <div className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#000]">
-<Player 
-  tmdbId={movieId}      // number
-  imdbId={finalImdbId}  // string | null
-  kpId={kinopoiskId}    // number | null
-  title={movie.title}
-  mediaType="movie"
-/>
-
+                        <Player 
+                          tmdbId={movieId}      
+                          imdbId={finalImdbId}  
+                          kpId={kinopoiskId}    
+                          title={movie.title}
+                          mediaType="movie"
+                        />
                     </div>
-                    
-                    {/* Инфо для отладки */}
-                    {/* <div className="mt-2 text-[10px] text-slate-600 font-mono flex gap-3">
-                        <span>TMDB: {movieId}</span>
-                        <span>IMDb: {finalImdbId || 'N/A'}</span>
-                        <span className={kinopoiskId ? "text-green-600" : "text-red-900"}>
-                          KP: {kinopoiskId || 'Not found'}
-                        </span>
-                    </div> */}
                 </div>
 
                 <div className="mb-16">
@@ -250,7 +251,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                        {movie.overview || "Описание отсутствует."}
                     </p>
                 </div>
-
                 <CastList cast={cast} />
                 <SimilarList items={similar} type="movie" />
             </div>
@@ -276,7 +276,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             </span>
                                         </div>
                                     )}
-
                                     <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
                                         <div>
                                             <span className="block text-slate-500 mb-1 text-[10px] font-bold uppercase tracking-wider">Статус</span>
@@ -289,7 +288,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             </span>
                                         </div>
                                     </div>
-
                                     {((details.budget && details.budget > 0) || (details.revenue && details.revenue > 0)) && (
                                         <div className="flex flex-col gap-3 border-b border-white/5 pb-3">
                                             {details.budget && details.budget > 0 ? (
@@ -306,7 +304,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             ) : null}
                                         </div>
                                     )}
-
                                     {details.production_companies && details.production_companies.length > 0 && (
                                         <div className="border-b border-white/5 pb-3">
                                             <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Производство</span>
@@ -320,7 +317,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             </div>
                                         </div>
                                     )}
-
                                     {details.production_countries && details.production_countries.length > 0 && (
                                         <div className="border-b border-white/5 pb-3">
                                             <span className="block text-slate-500 mb-2 text-[10px] font-bold uppercase tracking-wider">Страны</span>
@@ -333,7 +329,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             </div>
                                         </div>
                                     )}
-
                                     {(details.homepage || finalImdbId) && (
                                         <div className="grid grid-cols-2 gap-3 pt-1">
                                             {details.homepage && (
@@ -360,7 +355,6 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                                             )}
                                         </div>
                                     )}
-
                                     <div className="pt-2">
                                         <div className="flex flex-wrap gap-2">
                                             {details.genres?.map((g) => (

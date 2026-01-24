@@ -1,13 +1,13 @@
 import { db } from '@/db';
-import { reviews, follows, watchlist, users } from '@/db/schema';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { reviews, follows, watchlist, users, watchedHistory } from '@/db/schema';
+import { eq, and, count, desc, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
 import ProfileClientView from '@/components/ProfileClientView';
 import ProfileHeader from '@/components/ProfileHeader';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import Navbar from '@/components/Navbar'; // 1. Добавлен импорт
+import Navbar from '@/components/Navbar';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +29,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   }
 
   // --- 1. ЗАГРУЗКА ДАННЫХ ИЗ БД ---
-  
+
   // Оценки
   const userReviews = await db.select()
     .from(reviews)
@@ -40,6 +40,64 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .from(watchlist)
     .where(eq(watchlist.userId, targetUserId))
     .orderBy(desc(watchlist.createdAt));
+
+  // История просмотров ПО ДНЯМ за последний год
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  const rawHistoryStats = await db
+    .select({
+      date: sql<string>`DATE(${watchedHistory.watchedAt})`,
+      count: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(watchedHistory)
+    .where(
+      and(
+        eq(watchedHistory.userId, targetUserId),
+        sql`${watchedHistory.watchedAt} >= ${oneYearAgo.toISOString()}`
+      )
+    )
+    .groupBy(sql`DATE(${watchedHistory.watchedAt})`)
+    .orderBy(sql`DATE(${watchedHistory.watchedAt})`);
+
+  // Создаем полный массив дней за последний год
+  const generateYearData = () => {
+    const data: any[] = [];
+    const today = new Date();
+    
+    for (let i = 364; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const dayOfWeek = date.getDay(); // 0 = Воскресенье, 6 = Суббота
+      
+      // Ищем данные для этого дня
+      const dayData = rawHistoryStats.find(s => s.date === dateStr);
+      
+      data.push({
+        date: dateStr,
+        dayOfWeek,
+        count: dayData?.count || 0,
+        fullDate: date.toLocaleDateString('ru-RU', { 
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric' 
+        })
+      });
+    }
+    
+    return data;
+  };
+
+  const activityData = generateYearData();
+
+  // Общее количество просмотров
+  const totalWatchedResult = await db
+    .select({ count: count() })
+    .from(watchedHistory)
+    .where(eq(watchedHistory.userId, targetUserId));
+  const totalWatchedCount = totalWatchedResult[0]?.count || 0;
 
   // Подписки
   let isFollowing = false;
@@ -60,7 +118,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   // --- 2. ОБРАБОТКА ДАННЫХ ДЛЯ UI ---
 
-  // Статистика для радара
+  // Статистика для радара (на основе рецензий)
   const totalReviews = userReviews.length;
   const totals = { plot: 0, acting: 0, visuals: 0, sound: 0, characters: 0, atmosphere: 0, ending: 0, originality: 0 };
 
@@ -93,86 +151,88 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
   
-  // История
+  // История рецензий (последние действия)
   const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime());
-
+  
   const history = await Promise.all(
     sortedReviews.map(async (review) => {
-        let mediaData: any = null;
-        try {
-            if (review.mediaType === 'movie') {
-                mediaData = await getMovieById(String(review.mediaId));
-            } else {
-                mediaData = await getTVShowById(String(review.mediaId));
-            }
-        } catch (e) { }
-        
-        const safeData = mediaData as any;
-        return {
-            ...review,
-            poster_path: safeData?.poster_path,
-            title: safeData?.title || safeData?.name || 'Неизвестно',
-            year: (safeData?.release_date || safeData?.first_air_date || '').split('-')[0]
-        };
+      let mediaData: any = null;
+      try {
+        if (review.mediaType === 'movie') {
+          mediaData = await getMovieById(String(review.mediaId));
+        } else {
+          mediaData = await getTVShowById(String(review.mediaId));
+        }
+      } catch (e) { }
+      
+      const safeData = mediaData as any;
+      return {
+        ...review,
+        poster_path: safeData?.poster_path,
+        title: safeData?.title || safeData?.name || 'Неизвестно',
+        year: (safeData?.release_date || safeData?.first_air_date || '').split('-')[0]
+      };
     })
   );
 
   // Watchlist
   const watchlistWithData = await Promise.all(
     userWatchlist.map(async (item) => {
-        let mediaData: any = null;
-        try {
-            if (item.mediaType === 'movie') {
-                mediaData = await getMovieById(String(item.mediaId));
-            } else {
-                mediaData = await getTVShowById(String(item.mediaId));
-            }
-        } catch (e) { }
+      let mediaData: any = null;
+      try {
+        if (item.mediaType === 'movie') {
+          mediaData = await getMovieById(String(item.mediaId));
+        } else {
+          mediaData = await getTVShowById(String(item.mediaId));
+        }
+      } catch (e) { }
 
-        const safeData = mediaData as any;
-        return {
-            ...item,
-            poster_path: safeData?.poster_path,
-            title: safeData?.title || safeData?.name || 'Неизвестно',
-        };
+      const safeData = mediaData as any;
+      return {
+        ...item,
+        poster_path: safeData?.poster_path,
+        title: safeData?.title || safeData?.name || 'Неизвестно',
+      };
     })
   );
 
-  // Уровни
+  // Уровни (рассчитываем на основе кол-ва рецензий ИЛИ просмотров)
+  const totalActivity = totalReviews + totalWatchedCount;
+
   const getLevel = (count: number) => {
-      if (count >= 50) return { name: 'Легенда Кино', next: 100, progress: 100, color: 'text-yellow-400', bg: 'bg-yellow-500' };
-      if (count >= 20) return { name: 'Главный Критик', next: 50, progress: (count / 50) * 100, color: 'text-red-400', bg: 'bg-red-500' };
-      if (count >= 10) return { name: 'Насмотренный', next: 20, progress: (count / 20) * 100, color: 'text-purple-400', bg: 'bg-purple-500' };
-      if (count >= 5) return { name: 'Любитель', next: 10, progress: (count / 10) * 100, color: 'text-blue-400', bg: 'bg-blue-500' };
-      return { name: 'Новичок', next: 5, progress: (count / 5) * 100, color: 'text-slate-400', bg: 'bg-slate-500' };
+    if (count >= 100) return { name: 'Киноман-Легенда', next: 200, progress: 100, color: 'text-yellow-400', bg: 'bg-yellow-500' };
+    if (count >= 50) return { name: 'Главный Критик', next: 100, progress: (count / 100) * 100, color: 'text-red-400', bg: 'bg-red-500' };
+    if (count >= 20) return { name: 'Насмотренный', next: 50, progress: (count / 50) * 100, color: 'text-purple-400', bg: 'bg-purple-500' };
+    if (count >= 5) return { name: 'Любитель', next: 20, progress: (count / 20) * 100, color: 'text-blue-400', bg: 'bg-blue-500' };
+    return { name: 'Новичок', next: 5, progress: (count / 5) * 100, color: 'text-slate-400', bg: 'bg-slate-500' };
   };
 
-  const level = getLevel(totalReviews);
+  const level = getLevel(totalActivity);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
-      <Navbar /> {/* 2. Добавлен Navbar */}
+      <Navbar /> 
       
       {/* КНОПКА НАЗАД */}
       <div className="fixed top-8 left-6 md:left-12 z-50 pt-20">
         <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
-            <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-            На главную
+          <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+          На главную
         </Link>
       </div>
 
       {/* НОВЫЙ ПРОФИЛЬНЫЙ ХЕДЕР */}
       <ProfileHeader 
         user={{
-            // NextAuth хранит имя целиком, пробуем разбить или выводим как есть
-            firstName: targetUser.name?.split(' ')[0] || 'User',
-            lastName: targetUser.name?.split(' ').slice(1).join(' ') || '',
-            imageUrl: targetUser.image || '' // Поле image в БД NextAuth
+          firstName: targetUser.name?.split(' ')[0] || 'User',
+          lastName: targetUser.name?.split(' ').slice(1).join(' ') || '',
+          imageUrl: targetUser.image || '' 
         }}
         stats={{
-            followers: followersCount,
-            following: followingCount,
-            reviews: totalReviews
+          followers: followersCount,
+          following: followingCount,
+          reviews: totalReviews,
+          watched: totalWatchedCount
         }}
         level={level}
         isOwnProfile={isOwnProfile}
@@ -186,6 +246,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         watchlist={watchlistWithData}
         totalReviews={totalReviews}
         averageScore={averageScore}
+        activityData={activityData}
       />
     </div>
   );
