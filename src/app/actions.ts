@@ -569,20 +569,29 @@ export async function deleteList(listId: number) {
 }
 
 
-// Вспомогательная функция для получения данных с TMDB
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Функция получения данных
 async function fetchMediaDetails(type: string, id: number) {
   try {
     const apiKey = process.env.TMDB_API_KEY;
     if (!apiKey) return null;
 
-    // Запрашиваем на русском языке
     const response = await fetch(
-      `https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=ru-RU`
+      `https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}&language=ru-RU`,
+      // Важно: отключаем кэширование, чтобы не получить старые ошибки,
+      // или настраиваем revalidate, если нужно
+      { next: { revalidate: 3600 } } 
     );
     
-    if (!response.ok) return null;
+    if (!response.ok) {
+        // Логируем ошибку, чтобы видеть в консоли сервера, почему не скачалось (например, 429)
+        console.warn(`Failed to fetch ${type}/${id}: Status ${response.status}`);
+        return null;
+    }
     return await response.json();
   } catch (e) {
+    console.error(`Error fetching ${type}/${id}:`, e);
     return null;
   }
 }
@@ -596,7 +605,7 @@ export async function exportList(listId: number) {
   }
 
   try {
-    // 1. Получаем информацию о самом списке
+    // 1. Получаем информацию о списке
     const listsData = await db
       .select()
       .from(lists)
@@ -606,7 +615,7 @@ export async function exportList(listId: number) {
     const list = listsData[0];
     if (!list) return { success: false, message: 'Список не найден' };
 
-    // 2. Получаем ID элементов из базы данных
+    // 2. Получаем элементы из БД
     const dbItems = await db
       .select({
         mediaId: listItems.mediaId,
@@ -616,40 +625,52 @@ export async function exportList(listId: number) {
       .from(listItems)
       .where(eq(listItems.listId, listId));
 
-    // 3. ОБОГАЩАЕМ ДАННЫЕ: Проходим по каждому элементу и скачиваем инфо из TMDB
-    // Используем Promise.all, чтобы запросы шли параллельно (быстрее)
-    const enrichedItems = await Promise.all(
-      dbItems.map(async (item) => {
-        const details = await fetchMediaDetails(item.mediaType, item.mediaId);
+    // 3. ОБОГАЩАЕМ ДАННЫЕ (С БАТЧИНГОМ)
+    
+    const BATCH_SIZE = 10; // Сколько запросов отправлять одновременно
+    const DELAY_MS = 200;  // Пауза между пачками (в мс)
+    const enrichedItems = [];
 
-        if (!details) {
-          // Если фильм удален из TMDB или ошибка, возвращаем хотя бы ID
-          return { ...item, error: 'Data not found' };
-        }
-
-        // Определяем поля (у фильмов title, у сериалов name)
-        const title = details.title || details.name;
-        const originalTitle = details.original_title || details.original_name;
-        const releaseDate = details.release_date || details.first_air_date;
+    // Разбиваем массив на кусочки по 10 штук
+    for (let i = 0; i < dbItems.length; i += BATCH_SIZE) {
+        const chunk = dbItems.slice(i, i + BATCH_SIZE);
         
-        return {
-          // Данные из вашей базы (комментарий пользователя)
-          userComment: item.comment,
-          mediaType: item.mediaType,
-          mediaId: item.mediaId,
-          
-          // Данные из TMDB (то, что вы хотели)
-          title: title,
-          originalTitle: originalTitle,
-          year: releaseDate ? releaseDate.split('-')[0] : 'N/A',
-          rating: details.vote_average ? Number(details.vote_average.toFixed(1)) : 0,
-          posterPath: details.poster_path,
-          overview: details.overview,
-        };
-      })
-    );
+        // Обрабатываем пачку параллельно
+        const chunkResults = await Promise.all(
+            chunk.map(async (item) => {
+                const details = await fetchMediaDetails(item.mediaType, item.mediaId);
 
-    // 4. Формируем итоговый объект
+                if (!details) {
+                    return { ...item, error: 'Data not found (Check TMDB ID)' };
+                }
+
+                const title = details.title || details.name;
+                const originalTitle = details.original_title || details.original_name;
+                const releaseDate = details.release_date || details.first_air_date;
+                
+                return {
+                    userComment: item.comment,
+                    mediaType: item.mediaType,
+                    mediaId: item.mediaId,
+                    title: title,
+                    originalTitle: originalTitle,
+                    year: releaseDate ? releaseDate.split('-')[0] : 'N/A',
+                    rating: details.vote_average ? Number(details.vote_average.toFixed(1)) : 0,
+                    posterPath: details.poster_path,
+                    overview: details.overview,
+                };
+            })
+        );
+
+        enrichedItems.push(...chunkResults);
+
+        // Делаем паузу перед следующей пачкой, чтобы не злить API
+        if (i + BATCH_SIZE < dbItems.length) {
+            await delay(DELAY_MS);
+        }
+    }
+
+    // 4. Формируем итог
     const exportData = {
       meta: {
         listName: list.name,
