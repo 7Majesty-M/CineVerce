@@ -19,7 +19,8 @@ import SimilarList from '@/components/SimilarList';
 import Navbar from '@/components/Navbar';
 
 export const dynamic = 'force-dynamic';
-
+export const fetchCache = 'force-no-store'; // <-- ЭТО ВАЖНО
+export const revalidate = 0;                // <-- И ЭТО ТОЖЕ
 // --- ТИПИЗАЦИЯ ДЛЯ РАСШИРЕННЫХ ДАННЫХ СЕРИАЛА ---
 interface ExtendedTVShow {
   id: number;
@@ -232,7 +233,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
 
                  {/* Actions */}
-                  {/* Actions */}
                   <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 relative z-10">
                     
                     {/* 1. Кнопка Трейлера */}
@@ -288,8 +288,6 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
 
                     </div>
                   </div>
-
-
               </div>
             </div>
           </div>
