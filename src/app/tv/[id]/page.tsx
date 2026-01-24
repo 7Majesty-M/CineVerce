@@ -232,29 +232,50 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
 
                  {/* Actions */}
-                 <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
-                    
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
-                        <div className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-default select-none transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent'}`}>
-                            {hasUserRated ? <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></> : <span className="opacity-70 text-xs uppercase tracking-wide">Оцените сезоны ниже ↓</span>}
-                        </div>
-                        
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <div className="sm:scale-90"><WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} /></div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <div className="sm:scale-90"><AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} /></div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        {/* Сама кнопка в обертке для масштабирования */}
-<div className="sm:scale-90">
-    <LogWatchedButton 
-        mediaId={show.id}    
-        mediaType="tv" 
-        title={show.name}   
-    />
+<div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+    
+    {/* Кнопка Трейлера */}
+    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
+    
+    {/* Панель действий */}
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
+        
+        {/* Блок рейтинга (Специфичный для TV) */}
+        <div className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 cursor-default select-none transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent'}`}>
+            {hasUserRated ? <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></> : <span className="opacity-70 text-xs uppercase tracking-wide">Оцените сезоны ниже ↓</span>}
+        </div>
+        
+        {/* Разделитель 1 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+        
+        {/* Кнопка Watchlist */}
+        <div className="sm:scale-90">
+            <WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} />
+        </div>
+        
+        {/* Разделитель 2 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+        
+        {/* Дропдаун списков */}
+        <div className="sm:scale-90">
+            <AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} />
+        </div>
+        
+        {/* Разделитель 3 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+        
+        {/* Кнопка LogWatched */}
+        <div className="sm:scale-90">
+            <LogWatchedButton 
+                mediaId={show.id} 
+                mediaType="tv" 
+                title={show.name} 
+            />
+        </div>
+
+    </div>
 </div>
-                    </div>
-                 </div>
+
               </div>
             </div>
           </div>
