@@ -808,3 +808,33 @@ export async function removeFavorite(slotIndex: number) {
     return { success: false };
   }
 }
+export async function updateProfile(formData: FormData) {
+  // 1. Проверяем, залогинен ли пользователь
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: 'Вы не авторизованы' };
+  }
+
+  const userId = session.user.id;
+  const name = formData.get('name') as string;
+  const imageUrl = formData.get('imageUrl') as string;
+
+  try {
+    // 2. Обновляем данные в таблице users
+    await db.update(users)
+      .set({
+        name: name || undefined, // Если пустая строка, не меняем
+        image: imageUrl || undefined,
+      })
+      .where(eq(users.id, userId));
+
+    // 3. Обновляем кэш, чтобы изменения отобразились мгновенно
+    revalidatePath(`/profile/${userId}`); // Обновляем страницу профиля
+    revalidatePath('/'); // Обновляем хедер на главной
+    
+    return { success: true };
+  } catch (e) {
+    console.error('Failed to update profile', e);
+    return { error: 'Не удалось обновить профиль' };
+  }
+}

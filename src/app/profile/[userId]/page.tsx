@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { reviews, follows, watchlist, users, watchedHistory } from '@/db/schema';
+import { reviews, follows, watchlist, users, watchedHistory, favorites } from '@/db/schema';
 import { eq, and, count, desc, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
@@ -8,12 +8,14 @@ import ProfileHeader from '@/components/ProfileHeader';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { getUserFavorites } from '@/lib/db-queries'; // (или путь к вашему файлу)
 
 export const dynamic = 'force-dynamic';
 
 export default async function UniversalProfilePage(props: { params: Promise<{ userId: string }> }) {
   const params = await props.params;
   const targetUserId = params.userId;
+  const userFavorites = await getUserFavorites(targetUserId);
 
   // 1. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА (КТО СМОТРИТ)
   const session = await auth();
@@ -41,9 +43,11 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .where(eq(watchlist.userId, targetUserId))
     .orderBy(desc(watchlist.createdAt));
 
-  // История просмотров ПО ДНЯМ за последний год
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  // История просмотров (FIX: ТЕПЕРЬ ФИКСИРОВАННЫЙ СТАРТ ВМЕСТО 365 ДНЕЙ)
+  
+  // Дата начала отсчета (например, запуск проекта или начало 2024 года)
+  // ВАЖНО: Эта дата не меняется, поэтому старые квадратики не будут исчезать
+  const PROJECT_START_DATE = new Date('2024-01-01'); 
 
   const rawHistoryStats = await db
     .select({
@@ -54,49 +58,55 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .where(
       and(
         eq(watchedHistory.userId, targetUserId),
-        sql`${watchedHistory.watchedAt} >= ${oneYearAgo.toISOString()}`
+        // Берем все записи от начала проекта (или можно убрать это условие, чтобы брать вообще всё)
+        sql`${watchedHistory.watchedAt} >= ${PROJECT_START_DATE.toISOString()}`
       )
     )
     .groupBy(sql`DATE(${watchedHistory.watchedAt})`)
     .orderBy(sql`DATE(${watchedHistory.watchedAt})`);
 
-  // Создаем полный массив дней за последний год
-  const generateYearData = () => {
+  // Создаем полный массив дней от СТАРТА до СЕГОДНЯ
+  const generateFullHistoryData = () => {
     const data: any[] = [];
-    const today = new Date();
     
-    for (let i = 364; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      
-      const dateStr = date.toISOString().split('T')[0];
-      const dayOfWeek = date.getDay(); // 0 = Воскресенье, 6 = Суббота
-      
+    // Начинаем с фиксированной даты
+    let currentDate = new Date(PROJECT_START_DATE);
+    const today = new Date();
+
+    // Цикл: пока текущая дата меньше или равна сегодняшней
+    while (currentDate <= today) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const dayOfWeek = currentDate.getDay(); // 0 = Воскресенье
+
       // Ищем данные для этого дня
       const dayData = rawHistoryStats.find(s => s.date === dateStr);
-      
+
       data.push({
         date: dateStr,
         dayOfWeek,
         count: dayData?.count || 0,
-        fullDate: date.toLocaleDateString('ru-RU', { 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric' 
+        fullDate: currentDate.toLocaleDateString('ru-RU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
         })
       });
+
+      // Переходим к следующему дню
+      currentDate.setDate(currentDate.getDate() + 1);
     }
-    
+
     return data;
   };
 
-  const activityData = generateYearData();
+  const activityData = generateFullHistoryData();
 
   // Общее количество просмотров
   const totalWatchedResult = await db
     .select({ count: count() })
     .from(watchedHistory)
     .where(eq(watchedHistory.userId, targetUserId));
+
   const totalWatchedCount = totalWatchedResult[0]?.count || 0;
 
   // Подписки
@@ -150,10 +160,10 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
   const averageScore = totalReviews ? (userReviews.reduce((a, b) => a + b.rating, 0) / totalReviews).toFixed(1) : '0.0';
 
   // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
-  
+
   // История рецензий (последние действия)
   const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime());
-  
+
   const history = await Promise.all(
     sortedReviews.map(async (review) => {
       let mediaData: any = null;
@@ -164,7 +174,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
           mediaData = await getTVShowById(String(review.mediaId));
         }
       } catch (e) { }
-      
+
       const safeData = mediaData as any;
       return {
         ...review,
@@ -211,8 +221,8 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
-      <Navbar /> 
-      
+      <Navbar />
+
       {/* КНОПКА НАЗАД */}
       <div className="fixed top-8 left-6 md:left-12 z-50 pt-20">
         <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
@@ -222,11 +232,11 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
       </div>
 
       {/* НОВЫЙ ПРОФИЛЬНЫЙ ХЕДЕР */}
-      <ProfileHeader 
+      <ProfileHeader
         user={{
           firstName: targetUser.name?.split(' ')[0] || 'User',
           lastName: targetUser.name?.split(' ').slice(1).join(' ') || '',
-          imageUrl: targetUser.image || '' 
+          imageUrl: targetUser.image || ''
         }}
         stats={{
           followers: followersCount,
@@ -240,13 +250,15 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         targetUserId={targetUserId}
       />
 
-      <ProfileClientView 
-        radarData={radarData} 
-        history={history} 
+      <ProfileClientView
+        radarData={radarData}
+        history={history}
         watchlist={watchlistWithData}
         totalReviews={totalReviews}
         averageScore={averageScore}
         activityData={activityData}
+        favoriteItems={userFavorites} 
+        isOwnProfile={isOwnProfile}
       />
     </div>
   );

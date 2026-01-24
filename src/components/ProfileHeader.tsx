@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import { toggleFollow, getProfileStats } from '@/app/actions';
 import { useRouter } from 'next/navigation';
+import EditProfileModal from './EditProfileModal'; // <-- Импортируем модалку
 
 interface ProfileHeaderProps {
   user: {
@@ -14,7 +15,7 @@ interface ProfileHeaderProps {
     followers: number;
     following: number;
     reviews: number;
-    watched: number; // <-- Добавлено
+    watched: number;
   };
   level: {
     name: string;
@@ -40,9 +41,10 @@ export default function ProfileHeader({
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
   const [followersCount, setFollowersCount] = useState(stats.followers);
   const [followingCount, setFollowingCount] = useState(stats.following);
-  
-  // Добавляем состояние для watched, на случай если оно тоже будет обновляться в реальном времени
   const [watchedCount, setWatchedCount] = useState(stats.watched);
+  
+  // State для модалки редактирования
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -50,38 +52,27 @@ export default function ProfileHeader({
   // --- ПОЛЛИНГ (ОПРОС СЕРВЕРА) ---
   useEffect(() => {
     const refreshStats = async () => {
-      // Если вкладка не активна (юзер ушел на другую), не долбим сервер
       if (document.hidden) return;
-      
       const newStats = await getProfileStats(targetUserId);
       if (newStats) {
-        // Обновляем только если цифры изменились, чтобы React не делал лишних рендеров
         setFollowersCount(prev => (prev !== newStats.followers ? newStats.followers : prev));
         setFollowingCount(prev => (prev !== newStats.following ? newStats.following : prev));
-        // Если в getProfileStats добавите watched, можно и его обновлять:
-        // setWatchedCount(newStats.watched);
       }
     };
-
-    // Опрашиваем каждые 5 секунд (чуть увеличил интервал для оптимизации)
     const interval = setInterval(refreshStats, 5000);
     return () => clearInterval(interval);
   }, [targetUserId]);
 
   const handleFollow = async () => {
-    // 1. Оптимистичное обновление (Мгновенно для меня)
     const newState = !isFollowing;
     setIsFollowing(newState);
     setFollowersCount(prev => newState ? prev + 1 : prev - 1);
-
-    // 2. Отправляем на сервер
+    
     startTransition(async () => {
       const res = await toggleFollow(targetUserId);
-      
       if (res.success) {
         router.refresh();
       } else {
-        // Откат при ошибке
         setIsFollowing(!newState);
         setFollowersCount(prev => newState ? prev - 1 : prev + 1);
         alert("Ошибка при подписке");
@@ -100,7 +91,7 @@ export default function ProfileHeader({
             <div className="flex flex-col md:flex-row items-end md:items-center gap-8">
                 
                 {/* АВАТАР */}
-                <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] border-4 border-[#050505] shadow-2xl overflow-hidden relative group">
+                <div className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] border-4 border-[#050505] shadow-2xl overflow-hidden relative group shrink-0">
                     {user.imageUrl ? (
                         <img src={user.imageUrl} alt="Avatar" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     ) : (
@@ -108,10 +99,20 @@ export default function ProfileHeader({
                             {user.firstName[0]}
                         </div>
                     )}
+                    
+                    {/* Кнопка смены аватарки при наведении (тоже можно использовать) */}
+                    {isOwnProfile && (
+                        <button 
+                            onClick={() => setIsEditOpen(true)}
+                            className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        </button>
+                    )}
                 </div>
                 
                 {/* ИНФОРМАЦИЯ О ЮЗЕРЕ */}
-                <div className="flex-1 mb-2">
+                <div className="flex-1 mb-2 w-full">
                     <div className="flex items-center gap-3 mb-2">
                         <span className={`px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-black uppercase tracking-widest ${level.color}`}>
                             {level.name}
@@ -119,32 +120,38 @@ export default function ProfileHeader({
                         {isOwnProfile && <span className="px-2 py-1 bg-white/10 rounded text-[10px] uppercase font-bold text-slate-300">Это Вы</span>}
                     </div>
                     
-                    <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white mb-2">
-                        {user.firstName} {user.lastName}
-                    </h1>
+                    {/* Имя + Карандаш */}
+                    <div className="flex items-center gap-4 mb-2 group/name">
+                        <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white">
+                            {user.firstName} {user.lastName}
+                        </h1>
+                        
+                        {/* КНОПКА РЕДАКТИРОВАНИЯ (Только для владельца) */}
+                        {isOwnProfile && (
+                            <button 
+                                onClick={() => setIsEditOpen(true)}
+                                className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-slate-400 hover:text-white transition-all opacity-100 md:opacity-0 md:group-hover/name:opacity-100 backdrop-blur-md"
+                                title="Редактировать профиль"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                     
                     {/* СТАТИСТИКА */}
                     <div className="flex flex-wrap items-center gap-6 text-sm font-bold text-slate-400 mb-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-white text-lg transition-all duration-300">
-                                {followersCount}
-                            </span> 
-                            Подписчиков
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
+                            <span className="text-white text-lg">{followersCount}</span> Подписчиков
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-white text-lg transition-all duration-300">
-                                {followingCount}
-                            </span> 
-                            Подписок
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
+                            <span className="text-white text-lg">{followingCount}</span> Подписок
                         </div>
-                        
-                        {/* Оценки */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
                             <span className="text-white text-lg">{stats.reviews}</span> Оценок
                         </div>
-
-                        {/* --- НОВОЕ: Просмотрено --- */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
                             <span className="text-white text-lg">{watchedCount}</span> Просмотрено
                         </div>
                     </div>
@@ -158,7 +165,7 @@ export default function ProfileHeader({
                 </div>
 
                 {/* КНОПКИ ДЕЙСТВИЙ */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 shrink-0">
                     {!isOwnProfile && targetUserId && (
                         <button
                             onClick={handleFollow}
@@ -175,15 +182,25 @@ export default function ProfileHeader({
                     )}
                     
                     {isOwnProfile && (
-                        <div className="text-center mb-4">
-                          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 drop-shadow-sm">
-                            Добро пожаловать в Вашу вселенную! ✨
+                        <div className="hidden md:block text-right mb-4">
+                          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 drop-shadow-sm animate-pulse">
+                            Добро пожаловать! ✨
                           </span>
                         </div>
                     )}
                 </div>
             </div>
          </div>
+
+         {/* МОДАЛКА РЕДАКТИРОВАНИЯ */}
+         {isOwnProfile && (
+            <EditProfileModal 
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                currentName={user.firstName + (user.lastName ? ' ' + user.lastName : '')}
+                currentImage={user.imageUrl}
+            />
+         )}
       </div>
   );
 }
