@@ -196,7 +196,7 @@ export default function Navbar() {
                   
                   <div className="mt-auto pt-6 flex items-center justify-center gap-2 opacity-30">
                     <div className="h-px w-12 bg-gradient-to-r from-transparent to-white/20"></div>
-                    <span className="text-xs text-white/40">CineVerse</span>
+                    <span className="text-xs text-white/40">CineRizon</span>
                     <div className="h-px w-12 bg-gradient-to-l from-transparent to-white/20"></div>
                   </div>
               </div>

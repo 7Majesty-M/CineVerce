@@ -183,37 +183,60 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                  <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
                     {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
                     
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
-                        <Link 
-                            href={`/movie/${movie.id}/rate`} 
-                            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all hover:bg-white/10 flex items-center justify-center gap-2
-                                ${isRated ? 'text-green-400' : 'text-slate-300 hover:text-white'}
-                            `}
-                        >
-                            {isRated ? (
-                                <><span>★</span> {movieRating}</>
-                            ) : (
-                                <><span>☆</span> Оценить</>
-                            )}
-                        </Link>
-                        
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <div className="sm:scale-90"><WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} /></div>
-                        
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <div className="sm:scale-90"><AddToListDropdown mediaId={movie.id} mediaType="movie" /></div>
+<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
 
-                        {/* --- 2. НОВАЯ КНОПКА "ПРОСМОТРЕНО" --- */}
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <div className="sm:scale-90">
-                            <LogWatchedButton 
-                                mediaId={movie.id} 
-                                mediaType="movie" 
-                                title={movie.title} 
-                            />
-                        </div>
-                        
-                    </div>
+    {/* Блок рейтинга (ОБНОВЛЕННЫЙ СТИЛЬ) */}
+    <Link 
+        href={`/movie/${movie.id}/rate`} 
+        className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors 
+        ${isRated 
+            ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' 
+            : 'text-slate-400 border border-transparent hover:text-white hover:bg-white/5'
+        }`}
+    >
+        {isRated ? (
+            <>
+                <span className="text-lg">★</span>
+                <span>Ваш рейтинг: {movieRating}</span>
+            </>
+        ) : (
+            <>
+                <span className="text-lg">☆</span>
+                <span className="opacity-70 text-xs uppercase tracking-wide">Оценить</span>
+            </>
+        )}
+    </Link>
+    
+    {/* Разделитель 1 */}
+    <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+    {/* Кнопка Watchlist */}
+    <div className="sm:scale-90">
+        <WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} />
+    </div>
+    
+    {/* Разделитель 2 */}
+    <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+    {/* Дропдаун списков */}
+    <div className="sm:scale-90">
+        <AddToListDropdown mediaId={movie.id} mediaType="movie" />
+    </div>
+
+    {/* Разделитель 3 */}
+    <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+    {/* Кнопка LogWatched */}
+    <div className="sm:scale-90">
+        <LogWatchedButton 
+            mediaId={movie.id} 
+            mediaType="movie" 
+            title={movie.title} 
+        />
+    </div>
+    
+</div>
+
                  </div>
               </div>
             </div>

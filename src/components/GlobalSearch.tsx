@@ -149,7 +149,7 @@ export default function GlobalSearch() {
             {!loading && results.length > 0 && (
                 <div className="px-4 py-2 bg-white/5 text-[10px] text-slate-500 border-t border-white/5 flex justify-between">
                     <span>Показаны лучшие совпадения</span>
-                    <span>CineVerse Search</span>
+                    <span>CineRizon Search</span>
                 </div>
             )}
           </div>

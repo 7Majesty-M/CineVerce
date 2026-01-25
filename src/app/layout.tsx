@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'CineVerse',
+  title: 'CineRizon',
   description: 'Ваш мир кино',
 }
 
