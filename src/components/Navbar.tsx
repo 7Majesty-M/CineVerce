@@ -4,15 +4,17 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AuthButtons from '@/components/AuthButtons';
-import GlobalSearch from '@/components/GlobalSearch';
 import { useSession } from 'next-auth/react';
+import dynamic from 'next/dynamic';
 
+const GlobalSearch = dynamic(() => import('@/components/GlobalSearch'), { 
+  ssr: false 
+});
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   
-  // Получаем статус сессии для корректной гидратации
   const { data: session, status } = useSession();
   const isAuthenticated = status === 'authenticated';
 
@@ -20,7 +22,6 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    // Проверка window нужна, чтобы код не упал на сервере
     if (typeof window !== 'undefined') {
       window.addEventListener('scroll', handleScroll);
       return () => window.removeEventListener('scroll', handleScroll);
@@ -35,11 +36,7 @@ export default function Navbar() {
 
   return (
     <>
-      {/* 
-        ================================================================
-        NAVBAR (ПК ВЕРСИЯ - ДИЗАЙН ИЗ КОДА №1) 
-        ================================================================
-      */}
+      {/* NAVBAR (ПК ВЕРСИЯ) */}
       <nav 
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 border-b
           ${scrolled 
@@ -48,12 +45,11 @@ export default function Navbar() {
           }
         `}
       >
-        {/* Верхний блик */}
         <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent transition-opacity duration-500 ${scrolled ? 'opacity-100' : 'opacity-0'}`}></div>
 
         <div className="container mx-auto px-6 flex items-center justify-between relative">
           
-          {/* 1. ЛОГОТИП (Стиль №1) */}
+          {/* ЛОГОТИП */}
           <Link href="/" className="flex items-center gap-3 group relative z-[60]">
              <div className="relative w-10 h-10 flex items-center justify-center">
                 <div className="absolute inset-0 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 group-hover:blur-md transition-all duration-500 animate-pulse"></div>
@@ -65,12 +61,12 @@ export default function Navbar() {
              </div>
              <div className="flex flex-col">
                 <span className="text-xl font-black tracking-tighter text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-pink-300 transition-all">
-                    CineVerse
+                    CineRizon
                 </span>
              </div>
           </Link>
 
-          {/* 2. ЦЕНТРАЛЬНОЕ МЕНЮ (Стиль №1 - Dock) */}
+          {/* ЦЕНТРАЛЬНОЕ МЕНЮ */}
           <div className="hidden md:flex items-center p-1.5 gap-2 rounded-full bg-[#0a0a0a]/80 border border-white/10 backdrop-blur-3xl shadow-2xl relative">
             <NavButton 
                 href="/feed" 
@@ -92,7 +88,6 @@ export default function Navbar() {
 
             <div className="w-px h-5 bg-white/10 mx-1"></div>
 
-            {/* Кнопка Time Machine (Стиль №1) */}
             <Link 
               href="/time-machine" 
               className={`relative px-5 py-2 rounded-full text-[11px] uppercase font-black tracking-widest transition-all duration-300 flex items-center gap-2 overflow-hidden group/tm
@@ -114,16 +109,18 @@ export default function Navbar() {
             <NavFire href="/match" active={pathname === '/match'}>Матч</NavFire>
           </div>
 
-          {/* 3. ПРАВАЯ ЧАСТЬ (Стиль №1) */}
+          {/* ПРАВАЯ ЧАСТЬ */}
           <div className="hidden md:flex items-center gap-4">
             <GlobalSearch />
             <div className="h-8 w-px bg-white/10"></div>
             <AuthButtons />
           </div>
 
-          {/* 4. МОБИЛЬНАЯ КНОПКА (Стиль №1) */}
+          {/* МОБИЛЬНАЯ КНОПКА */}
           <div className="md:hidden flex items-center gap-4 z-[60]">
-             <div className="scale-90"><GlobalSearch /></div>
+             <div>
+               <GlobalSearch />
+             </div>
              <button
                 className="group p-2 text-white focus:outline-none"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -138,33 +135,21 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* 
-        ================================================================
-        МОБИЛЬНОЕ МЕНЮ (ТЕЛЕФОННАЯ ВЕРСИЯ - ДИЗАЙН ИЗ КОДА №2)
-        ================================================================
-      */}
+      {/* МОБИЛЬНОЕ МЕНЮ */}
       <div className={`fixed inset-0 z-40 transition-all duration-700 md:hidden ${isMobileMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-          {/* Затемнение фона */}
           <div className={`absolute inset-0 bg-black/60 backdrop-blur-xl transition-opacity duration-700 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setIsMobileMenuOpen(false)}></div>
           
-          {/* Выезжающая панель справа */}
           <div className={`absolute inset-y-0 right-0 w-full max-w-sm bg-gradient-to-br from-black via-purple-950/20 to-black border-l border-white/10 shadow-2xl transition-transform duration-700 ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
               
-              {/* Фоновые пятна (Декор из Кода №2) */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/20 rounded-full blur-[120px] animate-pulse"></div>
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-pink-600/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
               
               <div className="relative h-full overflow-y-auto pt-24 px-6 pb-8 flex flex-col gap-6">
                   
-                  {/* 
-                    Профиль пользователя.
-                    ВАЖНО: Используем isAuthenticated, чтобы избежать Hydration Error.
-                  */}
                   {isAuthenticated && session?.user ? (
                     <Link href="/profile" className="group relative overflow-hidden flex items-center gap-4 p-5 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 active:scale-98 transition-all duration-300 hover:border-purple-500/30 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]">
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div className="relative">
-                          {/* Suppress hydration warning на случай разницы в атрибутах */}
                           <img 
                             src={session.user.image || ''} 
                             className="w-16 h-16 rounded-2xl border-2 border-white/20 shadow-lg" 
@@ -185,11 +170,9 @@ export default function Navbar() {
                     <div className="p-2"><AuthButtons /></div>
                   )}
 
-                  {/* Ссылки меню (Мобильный стиль №2) */}
                   <div className="flex flex-col gap-3">
                       <MobileLink href="/feed" icon="📰" title="Лента новостей" desc="Что нового в мире кино" delay="100ms" gradient="from-blue-500/10 to-cyan-500/10" />
                       
-                      {/* Большая карточка Time Machine */}
                       <Link 
                           href="/time-machine" 
                           className="relative overflow-hidden w-full flex items-center gap-4 p-6 rounded-3xl border border-purple-500/30 active:scale-98 transition-all animate-in slide-in-from-right-8 fade-in duration-700 shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:shadow-[0_0_40px_rgba(168,85,247,0.3)]"
@@ -211,7 +194,6 @@ export default function Navbar() {
                       <MobileLink href="/lists" icon="📚" title="Списки" desc="Ваши коллекции" delay="400ms" gradient="from-purple-500/10 to-blue-500/10" />
                   </div>
                   
-                  {/* Футер меню */}
                   <div className="mt-auto pt-6 flex items-center justify-center gap-2 opacity-30">
                     <div className="h-px w-12 bg-gradient-to-r from-transparent to-white/20"></div>
                     <span className="text-xs text-white/40">CineVerse</span>
@@ -221,7 +203,6 @@ export default function Navbar() {
           </div>
       </div>
 
-      {/* Стили для анимаций (ИЗ КОДА №2) */}
       <style jsx global>{`
         @keyframes shimmer {
           0% { transform: translateX(-100%); }
@@ -238,9 +219,6 @@ export default function Navbar() {
   );
 }
 
-// --- ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ---
-
-// 1. Кнопка для ПК (ИЗ КОДА №1)
 function NavButton({ href, active, children, activeColor, hoverColor }: { 
     href: string, active: boolean, children: React.ReactNode, activeColor: string, hoverColor: string 
 }) {
@@ -259,7 +237,6 @@ function NavButton({ href, active, children, activeColor, hoverColor }: {
     );
 }
 
-// 2. Кнопка "Матч" для ПК (ИЗ КОДА №1)
 function NavFire({ href, active, children }: { href: string, active: boolean, children: React.ReactNode }) {
     return (
         <Link 
@@ -277,7 +254,6 @@ function NavFire({ href, active, children }: { href: string, active: boolean, ch
     );
 }
 
-// 3. Ссылка для Мобильного меню (ИЗ КОДА №2)
 function MobileLink({ href, icon, title, desc, delay, isFire, gradient }: any) {
     return (
         <Link 

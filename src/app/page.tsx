@@ -508,12 +508,12 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-6 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
           <span className="text-3xl">🎬</span>
-          <span className="text-2xl font-black">CineVerse</span>
+          <span className="text-2xl font-black">CineRizon</span>
         </div>
         <p className="text-slate-500 text-sm mb-6 max-w-md mx-auto">
           Ваша персональная киновселенная. Мы собираем лучшие фильмы и сериалы со всего мира, чтобы вы могли наслаждаться ими в лучшем качестве.
         </p>
-        <p className="text-slate-600 text-xs">© 2026 CineVerse. Создано с ❤️ для любителей кино</p>
+        <p className="text-slate-600 text-xs">© 2026 CineRizon. Создано с ❤️ для любителей кино</p>
       </div>
     </footer>
   )
