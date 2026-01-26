@@ -23,7 +23,6 @@ const [user] = await db
 
   let newXp = user.xp + amount;
   let newLevel = user.level;
-  let newCoins = user.coins;
   let leveledUp = false;
 
   // 2. Проверяем Level Up
@@ -34,7 +33,6 @@ const [user] = await db
     newXp = newXp - nextLevelThreshold; // Оставляем остаток или копим дальше
     
     // НАГРАДА ЗА УРОВЕНЬ
-    newCoins += 50 * newLevel; // Чем выше уровень, тем больше монет
     leveledUp = true;
   }
 
@@ -42,8 +40,7 @@ const [user] = await db
   await db.update(users).set({
     xp: newXp,
     level: newLevel,
-    coins: newCoins
   }).where(eq(users.id, userId));
 
-  return { leveledUp, newLevel, newCoins };
+  return { leveledUp, newLevel };
 }
