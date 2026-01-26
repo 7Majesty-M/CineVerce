@@ -756,7 +756,6 @@ export async function logWatched(mediaId: number, mediaType: string, dateStr: st
       xpEarned: 50, // Сколько дали
       leveledUp: xpResult?.leveledUp || false, // Повысился ли уровень?
       newLevel: xpResult?.newLevel || 1,       // Какой теперь уровень?
-      newCoins: xpResult?.newCoins || 0        // Сколько теперь монет?
     };
 
   } catch (error) {
