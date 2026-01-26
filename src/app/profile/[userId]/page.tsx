@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { reviews, follows, watchlist, users, watchedHistory, favorites } from '@/db/schema';
+import { reviews, follows, watchlist, users, watchedHistory } from '@/db/schema';
 import { eq, and, count, desc, sql } from 'drizzle-orm';
 import { auth } from '@/auth';
 import { getMovieById, getTVShowById } from '@/lib/tmdb';
@@ -8,47 +8,45 @@ import ProfileHeader from '@/components/ProfileHeader';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import { getUserFavorites } from '@/lib/db-queries'; // (или путь к вашему файлу)
+import { getUserFavorites } from '@/lib/db-queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UniversalProfilePage(props: { params: Promise<{ userId: string }> }) {
   const params = await props.params;
   const targetUserId = params.userId;
+
+  // 1. ЗАГРУЖАЕМ ИЗБРАННОЕ
   const userFavorites = await getUserFavorites(targetUserId);
 
-  // 1. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА (КТО СМОТРИТ)
+  // 2. ПОЛУЧАЕМ ТЕКУЩЕГО ЮЗЕРА
   const session = await auth();
   const currentUserId = session?.user?.id;
   const isOwnProfile = currentUserId === targetUserId;
 
-  // 2. ПОЛУЧАЕМ ДАННЫЕ ЦЕЛЕВОГО ЮЗЕРА ИЗ БД
-  const userResult = await db.select().from(users).where(eq(users.id, targetUserId));
-  const targetUser = userResult[0];
+  // 3. ПОЛУЧАЕМ ДАННЫЕ ЦЕЛЕВОГО ЮЗЕРА
+  const usersResult = await db.select().from(users).where(eq(users.id, targetUserId));
+  const targetUser = usersResult[0];
 
   if (!targetUser) {
     return notFound();
   }
 
-  // --- 1. ЗАГРУЗКА ДАННЫХ ИЗ БД ---
-
+  // --- 4. ЗАГРУЗКА ОСТАЛЬНЫХ ДАННЫХ ---
+  
   // Оценки
   const userReviews = await db.select()
     .from(reviews)
     .where(eq(reviews.userId, targetUserId));
 
-  // Watchlist (Буду смотреть)
+  // Watchlist
   const userWatchlist = await db.select()
     .from(watchlist)
     .where(eq(watchlist.userId, targetUserId))
     .orderBy(desc(watchlist.createdAt));
 
-  // История просмотров (FIX: ТЕПЕРЬ ФИКСИРОВАННЫЙ СТАРТ ВМЕСТО 365 ДНЕЙ)
-  
-  // Дата начала отсчета (например, запуск проекта или начало 2024 года)
-  // ВАЖНО: Эта дата не меняется, поэтому старые квадратики не будут исчезать
+  // История просмотров
   const PROJECT_START_DATE = new Date('2024-01-01'); 
-
   const rawHistoryStats = await db
     .select({
       date: sql<string>`DATE(${watchedHistory.watchedAt})`,
@@ -58,47 +56,31 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .where(
       and(
         eq(watchedHistory.userId, targetUserId),
-        // Берем все записи от начала проекта (или можно убрать это условие, чтобы брать вообще всё)
         sql`${watchedHistory.watchedAt} >= ${PROJECT_START_DATE.toISOString()}`
       )
     )
     .groupBy(sql`DATE(${watchedHistory.watchedAt})`)
     .orderBy(sql`DATE(${watchedHistory.watchedAt})`);
 
-  // Создаем полный массив дней от СТАРТА до СЕГОДНЯ
+  // Heatmap
   const generateFullHistoryData = () => {
     const data: any[] = [];
-    
-    // Начинаем с фиксированной даты
     let currentDate = new Date(PROJECT_START_DATE);
     const today = new Date();
-
-    // Цикл: пока текущая дата меньше или равна сегодняшней
     while (currentDate <= today) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      const dayOfWeek = currentDate.getDay(); // 0 = Воскресенье
-
-      // Ищем данные для этого дня
+      const dayOfWeek = currentDate.getDay(); 
       const dayData = rawHistoryStats.find(s => s.date === dateStr);
-
       data.push({
         date: dateStr,
         dayOfWeek,
         count: dayData?.count || 0,
-        fullDate: currentDate.toLocaleDateString('ru-RU', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        })
+        fullDate: currentDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
       });
-
-      // Переходим к следующему дню
       currentDate.setDate(currentDate.getDate() + 1);
     }
-
     return data;
   };
-
   const activityData = generateFullHistoryData();
 
   // Общее количество просмотров
@@ -106,7 +88,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     .select({ count: count() })
     .from(watchedHistory)
     .where(eq(watchedHistory.userId, targetUserId));
-
   const totalWatchedCount = totalWatchedResult[0]?.count || 0;
 
   // Подписки
@@ -119,19 +100,15 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     isFollowing = followCheck.length > 0;
   }
 
-  // Считаем подписчиков
   const followersData = await db.select({ count: count() }).from(follows).where(eq(follows.followingId, targetUserId));
   const followingData = await db.select({ count: count() }).from(follows).where(eq(follows.followerId, targetUserId));
-
   const followersCount = followersData[0].count;
   const followingCount = followingData[0].count;
 
-  // --- 2. ОБРАБОТКА ДАННЫХ ДЛЯ UI ---
-
-  // Статистика для радара (на основе рецензий)
+  // --- 5. ДАННЫЕ ДЛЯ UI ---
   const totalReviews = userReviews.length;
   const totals = { plot: 0, acting: 0, visuals: 0, sound: 0, characters: 0, atmosphere: 0, ending: 0, originality: 0 };
-
+  
   userReviews.forEach(r => {
     const details = typeof r.details === 'string' ? JSON.parse(r.details) : r.details;
     if (details) {
@@ -159,9 +136,7 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
 
   const averageScore = totalReviews ? (userReviews.reduce((a, b) => a + b.rating, 0) / totalReviews).toFixed(1) : '0.0';
 
-  // --- 3. ПОДГРУЗКА ИНФОРМАЦИИ С TMDB (Картинки и названия) ---
-
-  // История рецензий (последние действия)
+  // --- 6. TMDB DATA ---
   const sortedReviews = userReviews.sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime());
 
   const history = await Promise.all(
@@ -174,7 +149,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
           mediaData = await getTVShowById(String(review.mediaId));
         }
       } catch (e) { }
-
       const safeData = mediaData as any;
       return {
         ...review,
@@ -185,7 +159,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     })
   );
 
-  // Watchlist
   const watchlistWithData = await Promise.all(
     userWatchlist.map(async (item) => {
       let mediaData: any = null;
@@ -196,7 +169,6 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
           mediaData = await getTVShowById(String(item.mediaId));
         }
       } catch (e) { }
-
       const safeData = mediaData as any;
       return {
         ...item,
@@ -206,24 +178,37 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     })
   );
 
-  // Уровни (рассчитываем на основе кол-ва рецензий ИЛИ просмотров)
+  // --- 7. РАСЧЕТ БЕЙДЖЕЙ И УРОВНЕЙ (ИСПРАВЛЕНО 2.0) ---
+  const totalXp = targetUser.xp || 0;
+  const dbLevel = targetUser.level || 1;
+  const XP_PER_LEVEL = 1000;
+
+  // 1. Уровень: Берем МАКСИМУМ из базы или расчета. 
+  const calculatedLevel = Math.floor(totalXp / XP_PER_LEVEL) + 1;
+  const currentLevel = Math.max(dbLevel, calculatedLevel);
+
+  // 2. Прогресс: Остаток от деления на 1000.
+  // Если у тебя 200 XP -> остаток 200. Показываем 200/1000.
+  // Если у тебя 1200 XP -> остаток 200. Показываем 200/1000.
+  const xpInCurrentLevel = totalXp % XP_PER_LEVEL;
+
+  // 3. Процент
+  const levelProgress = (xpInCurrentLevel / XP_PER_LEVEL) * 100;
+
   const totalActivity = totalReviews + totalWatchedCount;
-
-  const getLevel = (count: number) => {
-    if (count >= 100) return { name: 'Киноман-Легенда', next: 200, progress: 100, color: 'text-yellow-400', bg: 'bg-yellow-500' };
-    if (count >= 50) return { name: 'Главный Критик', next: 100, progress: (count / 100) * 100, color: 'text-red-400', bg: 'bg-red-500' };
-    if (count >= 20) return { name: 'Насмотренный', next: 50, progress: (count / 50) * 100, color: 'text-purple-400', bg: 'bg-purple-500' };
-    if (count >= 5) return { name: 'Любитель', next: 20, progress: (count / 20) * 100, color: 'text-blue-400', bg: 'bg-blue-500' };
-    return { name: 'Новичок', next: 5, progress: (count / 5) * 100, color: 'text-slate-400', bg: 'bg-slate-500' };
+  const getBadgeStyle = (count: number) => {
+    if (count >= 100) return { name: 'Киноман-Легенда', color: 'text-yellow-400', bg: 'bg-yellow-500' };
+    if (count >= 50) return { name: 'Главный Критик', color: 'text-red-400', bg: 'bg-red-500' };
+    if (count >= 20) return { name: 'Насмотренный', color: 'text-purple-400', bg: 'bg-purple-500' };
+    if (count >= 5)  return { name: 'Любитель', color: 'text-blue-400', bg: 'bg-blue-500' };
+    return { name: 'Новичок', color: 'text-slate-400', bg: 'bg-slate-500' };
   };
-
-  const level = getLevel(totalActivity);
+  const badgeStyle = getBadgeStyle(totalActivity);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
       <Navbar />
-
-      {/* КНОПКА НАЗАД */}
+      
       <div className="fixed top-8 left-6 md:left-12 z-50 pt-20">
         <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
           <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
@@ -231,12 +216,12 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
         </Link>
       </div>
 
-      {/* НОВЫЙ ПРОФИЛЬНЫЙ ХЕДЕР */}
       <ProfileHeader
         user={{
           firstName: targetUser.name?.split(' ')[0] || 'User',
           lastName: targetUser.name?.split(' ').slice(1).join(' ') || '',
-          imageUrl: targetUser.image || ''
+          imageUrl: targetUser.image || '',
+          xp: totalXp,
         }}
         stats={{
           followers: followersCount,
@@ -244,7 +229,15 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
           reviews: totalReviews,
           watched: totalWatchedCount
         }}
-        level={level}
+        level={{
+          current: currentLevel,
+          name: badgeStyle.name,
+          currentXp: xpInCurrentLevel, // Теперь здесь 200 (а не -800)
+          next: XP_PER_LEVEL,          
+          progress: levelProgress,     
+          color: badgeStyle.color,
+          bg: badgeStyle.bg
+        }}
         isOwnProfile={isOwnProfile}
         isFollowing={isFollowing}
         targetUserId={targetUserId}

@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { logWatched } from '@/app/actions';
+import { logWatched } from '@/app/actions'; // Убедись, что путь правильный
 
 interface LogWatchedButtonProps {
   mediaId: number;
   mediaType: string;
   title: string;
+}
+
+// Тип данных, которые приходят от сервера
+interface XpResult {
+  xpEarned: number;
+  leveledUp: boolean;
+  newLevel: number;
 }
 
 export default function LogWatchedButton({ 
@@ -18,8 +25,12 @@ export default function LogWatchedButton({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  
   const [showToast, setShowToast] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Данные об опыте для Тоста
+  const [xpData, setXpData] = useState<XpResult | null>(null);
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [date, setDate] = useState(today);
@@ -61,10 +72,17 @@ export default function LogWatchedButton({
       const result = await logWatched(mediaId, mediaType, date);
       
       if (result.success) {
+        // Сохраняем данные об XP, чтобы показать в Тосте
+        setXpData({
+            xpEarned: result.xpEarned || 0,
+            leveledUp: result.leveledUp || false,
+            newLevel: result.newLevel || 1
+        });
+
         setIsOpen(false);
         setShowToast(true);
         setDate(today); 
-        setTimeout(() => setShowToast(false), 4000);
+        setTimeout(() => setShowToast(false), 5000); // Чуть дольше, чтобы разглядеть Level Up
       } else {
         setError(result.message || 'Произошла ошибка при сохранении');
       }
@@ -93,19 +111,15 @@ export default function LogWatchedButton({
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop с сильным размытием */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" 
         onClick={handleClose}
       />
       
-      {/* Контент */}
       <div className="relative bg-[#0E0E0E] rounded-3xl shadow-[0_0_50px_-10px_rgba(99,102,241,0.3)] w-full max-w-sm animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 border border-white/10 overflow-hidden ring-1 ring-white/5">
-        
-        {/* Декоративный градиент сверху */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
-
+        
         <button 
           onClick={handleClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10 z-10"
@@ -122,7 +136,7 @@ export default function LogWatchedButton({
                 </div>
                 <div>
                     <h3 className="text-xl font-bold text-white leading-none">Дневник</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1">Добавить запись</p>
+                    <p className="text-xs text-slate-400 font-medium mt-1">Добавить запись и получить XP</p>
                 </div>
             </div>
 
@@ -139,7 +153,7 @@ export default function LogWatchedButton({
                         <span className="text-indigo-400">{new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span>
                     </label>
                     
-                    {/* Быстрые кнопки (Pills) */}
+                    {/* Быстрые кнопки */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
                         {[
                             { label: 'Сегодня', days: 0 },
@@ -149,7 +163,7 @@ export default function LogWatchedButton({
                             const btnDate = new Date();
                             btnDate.setDate(btnDate.getDate() - btn.days);
                             const isSelected = date === btnDate.toISOString().split('T')[0];
-
+                            
                             return (
                                 <button 
                                     key={btn.days}
@@ -221,36 +235,65 @@ export default function LogWatchedButton({
     </div>
   );
 
-  // --- ТОСТ УСПЕХА ---
-  const SuccessToast = () => (
-    <div 
-      className="fixed bottom-6 right-6 z-[10000] animate-in slide-in-from-bottom-10 fade-in duration-500"
-      role="alert"
-    >
-      <div className="relative bg-[#151515]/90 backdrop-blur-xl border border-white/10 text-white p-1 rounded-2xl shadow-2xl flex items-center pr-4 ring-1 ring-white/5">
-        
-        {/* Иконка */}
-        <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 mr-3 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.2)]">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-        </div>
+  // --- ТОСТ УСПЕХА (GAMIFIED) ---
+  const SuccessToast = () => {
+    // Если повысили уровень, стиль меняется на золотой/эпичный
+    const isLevelUp = xpData?.leveledUp;
 
-<div className="flex flex-col mr-6">
-    <span className="text-sm font-bold text-white">Успешно!</span>
-    <span className="text-xs text-slate-400 font-medium">
-        {mediaType === 'movie' ? 'Фильм добавлен' : 'Сериал добавлен'} в историю
-    </span>
-</div>
+    return (
+      <div 
+        className="fixed bottom-6 right-6 z-[10000] animate-in slide-in-from-bottom-10 fade-in duration-500"
+        role="alert"
+      >
+        <div className={`relative backdrop-blur-xl border p-1 rounded-2xl shadow-2xl flex items-center pr-6 ring-1 overflow-hidden
+            ${isLevelUp 
+                ? 'bg-yellow-900/90 border-yellow-500/50 ring-yellow-500/30 shadow-yellow-500/20' 
+                : 'bg-[#151515]/90 border-white/10 ring-white/5'
+            }
+        `}>
+          
+          {/* Иконка слева */}
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mr-3 border shadow-lg
+             ${isLevelUp
+                ? 'bg-yellow-500 text-black border-yellow-400 shadow-yellow-500/40 text-2xl'
+                : 'bg-green-500/20 text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.2)]'
+             }
+          `}>
+             {isLevelUp ? '🏆' : (
+                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                 </svg>
+             )}
+          </div>
 
+          <div className="flex flex-col py-2">
+             <span className={`text-sm font-bold ${isLevelUp ? 'text-yellow-200' : 'text-white'}`}>
+                 {isLevelUp ? 'LEVEL UP!' : 'Успешно!'}
+             </span>
+             
+             {/* Анимация цифр XP */}
+             <div className="flex items-center gap-2 mt-0.5">
+                 <span className="text-xs text-slate-400 font-medium">
+                    {mediaType === 'movie' ? 'Фильм добавлен' : 'Сериал добавлен'}
+                 </span>
+                 <span className={`text-xs font-black px-1.5 py-0.5 rounded
+                    ${isLevelUp ? 'bg-yellow-500 text-black' : 'bg-white/10 text-slate-300'}
+                 `}>
+                    {isLevelUp ? `LVL ${xpData?.newLevel}` : `+${xpData?.xpEarned} XP`}
+                 </span>
+             </div>
+          </div>
 
-        {/* Прогресс бар (анимация таймера) */}
-        <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 w-full animate-[shrink_4s_linear_forwards]" />
+          {/* Прогресс бар (таймер) */}
+          <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-white/5 rounded-full overflow-hidden">
+             <div className={`h-full w-full animate-[shrink_5s_linear_forwards]
+                ${isLevelUp ? 'bg-yellow-500' : 'bg-green-500'}
+             `} />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>

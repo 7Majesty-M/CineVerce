@@ -10,6 +10,8 @@ export const users = pgTable("user", {
   email: text("email").notNull(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
+  xp: integer("xp").default(0).notNull(),           // Опыт
+  level: integer("level").default(1).notNull(),     // Уровень (1, 2, 3...)
 });
 
 export const accounts = pgTable(
@@ -42,6 +44,11 @@ export const sessions = pgTable("session", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   expires: timestamp("expires", { mode: "date" }).notNull(),
+  
+  // 🔥 НОВЫЕ ПОЛЯ (Добавь их):
+  ip: text("ip"),               // IP адрес
+  userAgent: text("user_agent"), // Браузер и ОС (строка)
+  lastActive: timestamp("last_active", { mode: "date" }).defaultNow(), // Время последнего входа
 });
 
 export const verificationTokens = pgTable(

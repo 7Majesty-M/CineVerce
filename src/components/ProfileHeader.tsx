@@ -3,13 +3,14 @@
 import { useState, useTransition, useEffect } from 'react';
 import { toggleFollow, getProfileStats } from '@/app/actions';
 import { useRouter } from 'next/navigation';
-import EditProfileModal from './EditProfileModal'; // <-- Импортируем модалку
+import EditProfileModal from './EditProfileModal'; 
 
 interface ProfileHeaderProps {
   user: {
     firstName: string;
     lastName: string;
     imageUrl: string;
+    xp: number;
   };
   stats: {
     followers: number;
@@ -18,9 +19,11 @@ interface ProfileHeaderProps {
     watched: number;
   };
   level: {
+    current: number;
     name: string;
-    next: number;
-    progress: number;
+    currentXp?: number; // 🔥 Новое поле (сколько XP на уровне)
+    next: number;       // Цель (1000)
+    progress: number;   // Процент
     color: string;
     bg: string;
   };
@@ -43,42 +46,42 @@ export default function ProfileHeader({
   const [followingCount, setFollowingCount] = useState(stats.following);
   const [watchedCount, setWatchedCount] = useState(stats.watched);
   
-  // State для модалки редактирования
   const [isEditOpen, setIsEditOpen] = useState(false);
-
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  // --- ПОЛЛИНГ (ОПРОС СЕРВЕРА) ---
+  // (useEffect и handleFollow оставляем без изменений...)
   useEffect(() => {
+    // ... тот же код поллинга ...
     const refreshStats = async () => {
-      if (document.hidden) return;
-      const newStats = await getProfileStats(targetUserId);
-      if (newStats) {
-        setFollowersCount(prev => (prev !== newStats.followers ? newStats.followers : prev));
-        setFollowingCount(prev => (prev !== newStats.following ? newStats.following : prev));
-      }
-    };
-    const interval = setInterval(refreshStats, 5000);
-    return () => clearInterval(interval);
+        if (document.hidden) return;
+        const newStats = await getProfileStats(targetUserId);
+        if (newStats) {
+          setFollowersCount(prev => (prev !== newStats.followers ? newStats.followers : prev));
+          setFollowingCount(prev => (prev !== newStats.following ? newStats.following : prev));
+        }
+      };
+      const interval = setInterval(refreshStats, 5000);
+      return () => clearInterval(interval);
   }, [targetUserId]);
 
   const handleFollow = async () => {
-    const newState = !isFollowing;
-    setIsFollowing(newState);
-    setFollowersCount(prev => newState ? prev + 1 : prev - 1);
-    
-    startTransition(async () => {
-      const res = await toggleFollow(targetUserId);
-      if (res.success) {
-        router.refresh();
-      } else {
-        setIsFollowing(!newState);
-        setFollowersCount(prev => newState ? prev - 1 : prev + 1);
-        alert("Ошибка при подписке");
-      }
-    });
+     // ... тот же код ...
+     const newState = !isFollowing;
+     setIsFollowing(newState);
+     setFollowersCount(prev => newState ? prev + 1 : prev - 1);
+     startTransition(async () => {
+       const res = await toggleFollow(targetUserId);
+       if (res.success) router.refresh();
+       else {
+         setIsFollowing(!newState);
+         setFollowersCount(prev => newState ? prev - 1 : prev + 1);
+       }
+     });
   };
+
+  // Если currentXp не передали (старая версия), считаем по user.xp
+  const displayXp = level.currentXp !== undefined ? level.currentXp : user.xp;
 
   return (
     <div className="relative h-96 w-full overflow-hidden">
@@ -99,14 +102,12 @@ export default function ProfileHeader({
                             {user.firstName[0]}
                         </div>
                     )}
-                    
-                    {/* Кнопка смены аватарки при наведении (тоже можно использовать) */}
                     {isOwnProfile && (
                         <button 
                             onClick={() => setIsEditOpen(true)}
                             className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
-                            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                             <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                     )}
                 </div>
@@ -120,18 +121,14 @@ export default function ProfileHeader({
                         {isOwnProfile && <span className="px-2 py-1 bg-white/10 rounded text-[10px] uppercase font-bold text-slate-300">Это Вы</span>}
                     </div>
                     
-                    {/* Имя + Карандаш */}
                     <div className="flex items-center gap-4 mb-2 group/name">
                         <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white">
                             {user.firstName} {user.lastName}
                         </h1>
-                        
-                        {/* КНОПКА РЕДАКТИРОВАНИЯ (Только для владельца) */}
                         {isOwnProfile && (
                             <button 
                                 onClick={() => setIsEditOpen(true)}
                                 className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-slate-400 hover:text-white transition-all opacity-100 md:opacity-0 md:group-hover/name:opacity-100 backdrop-blur-md"
-                                title="Редактировать профиль"
                             >
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -140,28 +137,76 @@ export default function ProfileHeader({
                         )}
                     </div>
                     
-                    {/* СТАТИСТИКА */}
                     <div className="flex flex-wrap items-center gap-6 text-sm font-bold text-slate-400 mb-4">
-                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
-                            <span className="text-white text-lg">{followersCount}</span> Подписчиков
-                        </div>
-                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
-                            <span className="text-white text-lg">{followingCount}</span> Подписок
-                        </div>
-                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
-                            <span className="text-white text-lg">{stats.reviews}</span> Оценок
-                        </div>
-                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default">
-                            <span className="text-white text-lg">{watchedCount}</span> Просмотрено
-                        </div>
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default"><span className="text-white text-lg">{followersCount}</span> Подписчиков</div>
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default"><span className="text-white text-lg">{followingCount}</span> Подписок</div>
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default"><span className="text-white text-lg">{stats.reviews}</span> Оценок</div>
+                        <div className="flex items-center gap-2 hover:text-white transition-colors cursor-default"><span className="text-white text-lg">{watchedCount}</span> Просмотрено</div>
                     </div>
 
-                    {/* ШКАЛА УРОВНЯ */}
-                    <div className="w-full max-w-md">
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                            <div className={`h-full ${level.bg} shadow-[0_0_15px_currentColor] transition-all duration-1000`} style={{ width: `${level.progress}%` }}></div>
-                        </div>
-                    </div>
+                    {/* 🔥 КРАСИВАЯ ШКАЛА УРОВНЯ */}
+<div className="w-full max-w-md mt-4">
+    {/* Текст: Уровень и Цифры XP */}
+    <div className="flex justify-between items-end mb-2.5 px-1">
+        <div className="flex items-center gap-2">
+            <span className={`text-sm font-black uppercase tracking-widest ${level.color} drop-shadow-lg`}>
+                LVL {level.current}
+            </span>
+            <div className={`h-1 w-1 rounded-full ${level.bg} animate-pulse`}></div>
+        </div>
+        <span className="text-[11px] font-bold font-mono tracking-wide text-slate-400">
+            <span className={`${level.color} font-extrabold`}>{Math.floor(displayXp)}</span>
+            <span className="text-slate-600 mx-0.5">/</span>
+            <span className="text-slate-500">{level.next}</span>
+        </span>
+    </div>
+
+    {/* Сама полоска */}
+    <div className="relative">
+        <div className="h-3 w-full bg-gradient-to-r from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-full overflow-hidden border border-white/10 shadow-lg relative backdrop-blur-sm">
+            {/* Фоновая анимация */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse"></div>
+            
+            {/* Активная полоска */}
+            <div 
+                className={`h-full ${level.bg} relative transition-all duration-1000 ease-out`} 
+                style={{ 
+                    width: `${level.progress}%`,
+                    boxShadow: `0 0 20px ${level.color.includes('blue') ? '#3b82f6' : level.color.includes('purple') ? '#a855f7' : level.color.includes('amber') ? '#f59e0b' : level.color.includes('emerald') ? '#10b981' : '#ef4444'}`
+                }}
+            >
+                {/* Градиент внутри полоски */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                
+                {/* Блик */}
+                <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/40 to-transparent rounded-t-full"></div>
+                
+                {/* Анимированный край */}
+                <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-white/50 to-transparent"></div>
+            </div>
+            
+            {/* Внутренняя тень для глубины */}
+            <div className="absolute inset-0 rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]"></div>
+        </div>
+        
+        {/* Декоративные частицы по краям */}
+        <div className={`absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 ${level.bg} rounded-full blur-sm opacity-60`}></div>
+        <div className={`absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 ${level.bg} rounded-full blur-sm opacity-60`}></div>
+    </div>
+    
+    {/* Подсказка снизу */}
+    <div className="mt-2 flex justify-between items-center px-1">
+        <span className="text-[9px] text-slate-600 font-medium italic">
+            ⚡ Продолжай в том же духе
+        </span>
+        <span className="text-[10px] text-slate-500 font-semibold">
+            <span className={`${level.color} font-bold`}>
+                {Math.max(0, level.next - Math.floor(displayXp))}
+            </span>
+            <span className="text-slate-600"> XP до LVL {level.current + 1}</span>
+        </span>
+    </div>
+</div>
                 </div>
 
                 {/* КНОПКИ ДЕЙСТВИЙ */}
@@ -192,7 +237,6 @@ export default function ProfileHeader({
             </div>
          </div>
 
-         {/* МОДАЛКА РЕДАКТИРОВАНИЯ */}
          {isOwnProfile && (
             <EditProfileModal 
                 isOpen={isEditOpen}

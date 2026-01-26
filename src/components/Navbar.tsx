@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import AuthButtons from '@/components/AuthButtons';
-import { useSession } from 'next-auth/react';
+import { useSession, SessionProvider } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 
 const GlobalSearch = dynamic(() => import('@/components/GlobalSearch'), { 
   ssr: false 
 });
-export default function Navbar() {
+
+function NavbarContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -46,7 +47,6 @@ export default function Navbar() {
         `}
       >
         <div className={`absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent transition-opacity duration-500 ${scrolled ? 'opacity-100' : 'opacity-0'}`}></div>
-
         <div className="container mx-auto px-6 flex items-center justify-between relative">
           
           {/* ЛОГОТИП */}
@@ -78,6 +78,15 @@ export default function Navbar() {
             </NavButton>
             
             <NavButton 
+                href="/discover" 
+                active={pathname === '/discover'} 
+                activeColor="shadow-[0_0_20px_rgba(245,158,11,0.5)]" 
+                hoverColor="hover:text-amber-400 hover:bg-amber-500/10"
+            >
+                Вселенная
+            </NavButton>
+            
+            <NavButton 
                 href="/lists" 
                 active={pathname === '/lists'} 
                 activeColor="shadow-[0_0_20px_rgba(52,211,153,0.5)]" 
@@ -106,7 +115,7 @@ export default function Navbar() {
 
             <div className="w-px h-5 bg-white/10 mx-1"></div>
 
-            <NavFire href="/match" active={pathname === '/match'}>Матч</NavFire>
+            <NavFire href="/match" active={pathname === '/match'}>Матч 🔥</NavFire>
           </div>
 
           {/* ПРАВАЯ ЧАСТЬ */}
@@ -173,6 +182,8 @@ export default function Navbar() {
                   <div className="flex flex-col gap-3">
                       <MobileLink href="/feed" icon="📰" title="Лента новостей" desc="Что нового в мире кино" delay="100ms" gradient="from-blue-500/10 to-cyan-500/10" />
                       
+                      <MobileLink href="/discover" icon="🔍" title="Вселенная" desc="Исследуйте новое кино" delay="150ms" gradient="from-amber-500/10 to-orange-500/10" />
+                      
                       <Link 
                           href="/time-machine" 
                           className="relative overflow-hidden w-full flex items-center gap-4 p-6 rounded-3xl border border-purple-500/30 active:scale-98 transition-all animate-in slide-in-from-right-8 fade-in duration-700 shadow-[0_0_30px_rgba(168,85,247,0.15)] hover:shadow-[0_0_40px_rgba(168,85,247,0.3)]"
@@ -219,6 +230,17 @@ export default function Navbar() {
   );
 }
 
+export default function Navbar() {
+  return (
+    <SessionProvider>
+      <NavbarContent />
+    </SessionProvider>
+  );
+}
+
+// ... imports and NavbarContent above ...
+
+// Make sure NavButton is defined correctly
 function NavButton({ href, active, children, activeColor, hoverColor }: { 
     href: string, active: boolean, children: React.ReactNode, activeColor: string, hoverColor: string 
 }) {
@@ -249,12 +271,20 @@ function NavFire({ href, active, children }: { href: string, active: boolean, ch
             `}
         >
             {children}
-            <span className={`${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>🔥</span>
         </Link>
     );
 }
 
-function MobileLink({ href, icon, title, desc, delay, isFire, gradient }: any) {
+// FIXED MobileLink Component
+function MobileLink({ href, icon, title, desc, delay, isFire, gradient }: { 
+    href: string; 
+    icon: string; 
+    title: string; 
+    desc: string; 
+    delay: string; 
+    isFire?: boolean; 
+    gradient?: string; 
+}) {
     return (
         <Link 
             href={href} 
@@ -262,13 +292,25 @@ function MobileLink({ href, icon, title, desc, delay, isFire, gradient }: any) {
             style={{ animationDelay: delay }}
         >
             <div className={`absolute inset-0 bg-gradient-to-br ${isFire ? 'from-orange-500/20 to-red-500/20' : 'from-purple-500/10 to-pink-500/10'} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+            
             <div className={`relative w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-lg transition-transform duration-300 group-hover:scale-110 ${isFire ? 'bg-gradient-to-br from-orange-500/30 to-red-500/30 text-orange-300' : 'bg-white/10 text-slate-200'}`}>
                 <span className={isFire ? 'animate-pulse' : ''}>{icon}</span>
             </div>
+            
             <div className="relative z-10 flex-1">
-                <div className={`font-black text-lg transition-colors duration-300 ${isFire ? 'text-orange-400 group-hover:text-orange-300' : 'text-white'}`}>{title}</div>
-                <div className="text-xs text-slate-400 font-medium tracking-wide mt-0.5">{desc}</div>
+<div 
+  className={`font-black text-lg transition-colors duration-300 ${
+    isFire ? 'text-orange-400 group-hover:text-orange-300' : 'text-white'
+  }`}
+>
+  {title}
+</div>
+                {/* LINE 296 FIX: Ensure desc is rendered cleanly */}
+                <div className="text-xs text-slate-400 font-medium tracking-wide mt-0.5">
+                    {desc}
+                </div>
             </div>
+            
             <div className="relative text-white/30 group-hover:text-white/60 transition-all duration-300 group-hover:translate-x-1">
                 <span className="text-xl">→</span>
             </div>

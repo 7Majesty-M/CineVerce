@@ -1,5 +1,6 @@
 // src/app/actions.ts
 'use server';
+import { addXpToUser } from '@/lib/gamification';
 import { db } from '@/db';
 import { watchedHistory } from '@/db/schema';
 import { reviews, follows, users, lists, listMembers, listItems, watchlist, matchSessions, matchVotes } from '@/db/schema';
@@ -716,13 +717,12 @@ export async function logWatched(mediaId: number, mediaType: string, dateStr: st
 
   try {
     // 1. ПРОВЕРКА НА ДУБЛИКАТЫ
-    // Ищем запись с таким же userId, mediaId И такой же датой
     const existingEntry = await db.select()
       .from(watchedHistory)
       .where(and(
         eq(watchedHistory.userId, session.user.id),
         eq(watchedHistory.mediaId, mediaId),
-        eq(watchedHistory.watchedAt, dateStr) // Проверяем именно дату
+        eq(watchedHistory.watchedAt, dateStr)
       ))
       .limit(1);
 
@@ -733,7 +733,7 @@ export async function logWatched(mediaId: number, mediaType: string, dateStr: st
       };
     }
 
-    // 2. ЕСЛИ ДУБЛИКАТА НЕТ - СОХРАНЯЕМ
+    // 2. СОХРАНЯЕМ В ИСТОРИЮ
     await db.insert(watchedHistory).values({
       userId: session.user.id,
       mediaId,
@@ -741,11 +741,24 @@ export async function logWatched(mediaId: number, mediaType: string, dateStr: st
       watchedAt: dateStr,
     });
 
+    // 3. 🔥 ГЕЙМИФИКАЦИЯ: Начисляем 50 XP
+    // (Делаем это после сохранения, чтобы не начислить опыт, если база упадет)
+    const xpResult = await addXpToUser(session.user.id, 50);
+
+    // 4. ОБНОВЛЕНИЕ КЭША
     revalidatePath('/profile'); 
     revalidatePath(`/movie/${mediaId}`);
     revalidatePath(`/tv/${mediaId}`);
 
-    return { success: true };
+    // 5. ВОЗВРАЩАЕМ РЕЗУЛЬТАТ С ДАННЫМИ ОБ ОПЫТЕ
+    return { 
+      success: true,
+      xpEarned: 50, // Сколько дали
+      leveledUp: xpResult?.leveledUp || false, // Повысился ли уровень?
+      newLevel: xpResult?.newLevel || 1,       // Какой теперь уровень?
+      newCoins: xpResult?.newCoins || 0        // Сколько теперь монет?
+    };
+
   } catch (error) {
     console.error('Log watched error:', error);
     return { success: false, message: 'Ошибка сохранения' };
