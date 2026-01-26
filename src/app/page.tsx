@@ -534,10 +534,30 @@ function ErrorState() {
 function BackgroundEffects() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-  <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/10 blur-[120px] rounded-full animate-pulse"></div>
-      <div className="absolute top-[20%] right-[-10%] w-[30%] h-[30%] bg-blue-900/10 blur-[100px] rounded-full animate-pulse animation-delay-2000"></div>
-      <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] bg-pink-900/10 blur-[150px] rounded-full animate-pulse animation-delay-4000"></div>
-      <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+
+      {/* 
+          ВАШИ ГРАДИЕНТЫ 
+          Я добавил 'will-change-[opacity]', чтобы браузер вынес анимацию пульсации 
+          в отдельный слой композитора. Это немного поможет с FPS.
+      */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-900/20 blur-[120px] rounded-full animate-pulse will-change-[opacity]"></div>
+      <div className="absolute top-[20%] right-[-10%] w-[30%] h-[30%] bg-blue-900/20 blur-[100px] rounded-full animate-pulse animation-delay-2000 will-change-[opacity]"></div>
+      <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] bg-pink-900/20 blur-[150px] rounded-full animate-pulse animation-delay-4000 will-change-[opacity]"></div>
+
+      {/* 
+          ОПТИМИЗИРОВАННЫЙ ШУМ (из моего варианта)
+          - Убран mix-blend-overlay (очень тяжелая операция для GPU).
+          - Оставили только opacity и translateZ.
+      */}
+      <div 
+        className="absolute inset-0 z-[1] opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyBAMAAADsEZWCAAAAGFBMVEUAAAA5OTkAAAAAAAAAAABMTExERERmZmZnOt2kAAAACHRSTlMAMwAqzLBzc/6j2QAAAAZiS0dEAAAAAAD2c2JpgAAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9wJExQZExQZExQAAABMSURBVDjLY2AYBaNgFIyCUTAKRsEoGAWjYBSMglEwCkbBKBgFo2AUjIJRMApGwSgYBaNgFIyCUTAKRsEoGAWjYBSMglEwCkbBKBgFowAAGLQAAS12Qx0AAAAASUVORK5CYII=")`,
+          backgroundRepeat: 'repeat',
+          transform: 'translateZ(0)', 
+        }}
+      ></div>
+
     </div>
   )
 }
