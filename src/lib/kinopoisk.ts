@@ -43,7 +43,6 @@ export async function findKinopoiskId({ imdbId, originalTitle, ruTitle, year }: 
     if (data && data.items && data.items.length > 0) {
         const match = data.items.find((i: any) => i.imdbId === imdbId);
         if (match) {
-            console.log(`🎯 KP: Нашли точно по IMDb: ${match.kinopoiskId}`);
             return match.kinopoiskId;
         }
         // Если строгого совпадения нет, но что-то нашли — берем первый
@@ -68,7 +67,6 @@ export async function findKinopoiskId({ imdbId, originalTitle, ruTitle, year }: 
     if (data && data.films && data.films.length > 0) {
         const match = data.films.find((f: KpFilm) => isYearValid(f.year));
         if (match) {
-            console.log(`🎯 KP: Нашли по OrigTitle + Year: ${match.filmId}`);
             return match.filmId;
         }
     }
@@ -80,12 +78,10 @@ export async function findKinopoiskId({ imdbId, originalTitle, ruTitle, year }: 
     if (data && data.films && data.films.length > 0) {
         const match = data.films.find((f: KpFilm) => isYearValid(f.year));
         if (match) {
-            console.log(`🎯 KP: Нашли по RuTitle + Year: ${match.filmId}`);
             return match.filmId;
         }
     }
   }
 
-  console.log(`⛔ KP: Ничего не найдено.`);
   return null;
 }

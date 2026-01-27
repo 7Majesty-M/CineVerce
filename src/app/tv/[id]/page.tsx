@@ -125,15 +125,15 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
           </div>
 
           {/* 2. КНОПКА НАЗАД (Чуть ниже навбара) */}
-          <div className="absolute top-24 left-0 w-full px-6 lg:px-12 z-40">
-             <Link 
-                href="/" 
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-x-1 group"
-             >
-                <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
-             </Link>
-          </div>
+<div className="hidden lg:block absolute top-24 left-0 w-full px-6 lg:px-12 z-40">
+   <Link 
+      href="/" 
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-x-1 group"
+   >
+      <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+      <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
+   </Link>
+</div>
 
           <div className="container mx-auto px-6 lg:px-12 h-full flex flex-col justify-end pb-16 relative z-10">
             <div className="flex flex-col lg:flex-row gap-12 lg:items-end">
@@ -233,61 +233,69 @@ export default async function TVShowPage(props: { params: Promise<{ id: string }
                  </div>
 
                  {/* Actions */}
-                  <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 relative z-10">
-                    
-                    {/* 1. Кнопка Трейлера */}
-                    {/* ИСПРАВЛЕНИЕ: Добавил relative z-20, чтобы она всегда была ПОВЕРХ серой панели */}
-                    {trailerKey && (
-                        <div className="relative z-20">
-                            <PlayHeroButton />
-                        </div>
-                    )}
-                    
-                    {/* 2. Панель действий */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
-                        
-                        {/* Блок рейтинга */}
-                        <Link 
-                            href={`/tv/${show.id}/rate`} // Добавил ссылку на оценку, как в фильмах
-                            className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent hover:text-white hover:bg-white/5'}`}
-                        >
-                            {hasUserRated ? (
-                                <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></>
-                            ) : (
-                                <><span className="text-lg">☆</span><span className="opacity-70 text-xs uppercase tracking-wide">Оценить сезоны</span></>
-                            )}
-                        </Link>
-                        
-                        {/* Разделитель 1 */}
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        
-                        {/* Кнопка Watchlist */}
-                        <div className="sm:scale-90">
-                            <WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} />
-                        </div>
-                        
-                        {/* Разделитель 2 */}
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        
-                        {/* Дропдаун списков */}
-                        <div className="sm:scale-90">
-                            <AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} />
-                        </div>
-                        
-                        {/* Разделитель 3 */}
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        
-                        {/* Кнопка LogWatched */}
-                        <div className="sm:scale-90">
-                            <LogWatchedButton 
-                                mediaId={show.id} 
-                                mediaType="tv" 
-                                title={show.name} 
-                            />
-                        </div>
+<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 relative z-10">
 
-                    </div>
-                  </div>
+    {/* 1. Кнопка Трейлера */}
+    {/* ИЗМЕНЕНИЕ: w-full для мобильных, чтобы кнопка была широкой. sm:w-auto возвращает обычный размер на ПК */}
+    {trailerKey && (
+        <div className="relative z-20 w-full sm:w-auto">
+            <PlayHeroButton />
+        </div>
+    )}
+
+    {/* 2. Панель действий */}
+    {/* 
+       ИЗМЕНЕНИЕ: 
+       - flex-row (было flex-col): теперь кнопки в ряд на телефоне.
+       - justify-between: кнопки распределяются по всей ширине.
+       - w-full sm:w-auto: панель занимает всю ширину на мобильном.
+       - overflow-x-auto: страховка от переполнения на очень узких экранах.
+    */}
+    <div className="flex flex-row items-center justify-between sm:justify-start gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10 overflow-x-auto no-scrollbar">
+
+        {/* Блок рейтинга */}
+        <Link
+            href={`/tv/${show.id}/rate`}
+            // shrink-0 запрещает кнопке сжиматься, чтобы текст не ломался
+            className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${hasUserRated ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' : 'text-slate-400 border border-transparent hover:text-white hover:bg-white/5'}`}
+        >
+            {hasUserRated ? (
+                <><span className="text-lg">★</span><span>Ваш ср. рейтинг: {averageUserRating}</span></>
+            ) : (
+                <><span className="text-lg">☆</span><span className="opacity-70 text-xs uppercase tracking-wide">Оценить</span></> // Сократил текст для мобильных, если нужно, можно вернуть "Оценить сезоны"
+            )}
+        </Link>
+
+        {/* Разделитель 1 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Кнопка Watchlist */}
+        <div className="scale-100 sm:scale-90">
+            <WatchlistButton mediaId={show.id} mediaType="tv" isInWatchlist={isInWatchlist} compact={false} />
+        </div>
+
+        {/* Разделитель 2 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Дропдаун списков */}
+        <div className="scale-100 sm:scale-90">
+            <AddToListDropdown mediaId={show.id} mediaType="tv" compact={false} />
+        </div>
+
+        {/* Разделитель 3 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Кнопка LogWatched */}
+        <div className="scale-100 sm:scale-90">
+            <LogWatchedButton
+                mediaId={show.id}
+                mediaType="tv"
+                title={show.name}
+            />
+        </div>
+    </div>
+</div>
+
               </div>
             </div>
           </div>

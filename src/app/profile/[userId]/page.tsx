@@ -209,12 +209,18 @@ export default async function UniversalProfilePage(props: { params: Promise<{ us
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-pink-500/30">
       <Navbar />
       
-      <div className="fixed top-8 left-6 md:left-12 z-50 pt-20">
-        <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
-          <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
-          На главную
-        </Link>
-      </div>
+<div className="hidden md:block fixed top-8 left-6 md:left-12 z-50 pt-20">
+
+  <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
+
+    <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+
+    На главную
+
+  </Link>
+
+</div>
+
 
       <ProfileHeader
         user={{

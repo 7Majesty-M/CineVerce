@@ -104,15 +104,12 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
              <Navbar />
           </div>
 
-          <div className="absolute top-24 left-0 w-full px-6 lg:px-12 z-40">
-             <Link 
-                href="/" 
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all hover:-translate-x-1 group"
-             >
-                <svg className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                <span className="text-sm font-bold text-slate-300 group-hover:text-white">Назад</span>
-             </Link>
-          </div>
+<div className="hidden lg:block fixed top-8 left-6 md:left-12 z-50 pt-20">
+  <Link href="/" className="group flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all text-sm font-bold text-slate-300 hover:text-white">
+    <svg className="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+    На главную
+  </Link>
+</div>
 
           <div className="container mx-auto px-6 lg:px-12 h-full flex flex-col justify-end pb-16 relative z-10">
             <div className="flex flex-col lg:flex-row gap-12 lg:items-end">
@@ -180,64 +177,73 @@ export default async function MoviePage(props: { params: Promise<{ id: string }>
                     )}
                  </div>
 
-                 <div className="flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
-                    {trailerKey && <div className="z-0"><PlayHeroButton /></div>}
-                    
-<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10">
+<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 relative z-10">
 
-    {/* Блок рейтинга (ОБНОВЛЕННЫЙ СТИЛЬ) */}
-    <Link 
-        href={`/movie/${movie.id}/rate`} 
-        className={`px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors 
-        ${isRated 
-            ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' 
-            : 'text-slate-400 border border-transparent hover:text-white hover:bg-white/5'
-        }`}
-    >
-        {isRated ? (
-            <>
-                <span className="text-lg">★</span>
-                <span>Ваш рейтинг: {movieRating}</span>
-            </>
-        ) : (
-            <>
-                <span className="text-lg">☆</span>
-                <span className="opacity-70 text-xs uppercase tracking-wide">Оценить</span>
-            </>
-        )}
-    </Link>
-    
-    {/* Разделитель 1 */}
-    <div className="hidden sm:block w-px h-6 bg-white/10" />
+    {/* 1. Кнопка Трейлера */}
+    {trailerKey && (
+        <div className="relative z-20 w-full sm:w-auto">
+            <PlayHeroButton />
+        </div>
+    )}
 
-    {/* Кнопка Watchlist */}
-    <div className="sm:scale-90">
-        <WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} />
+    {/* 2. Панель действий */}
+    <div className="flex flex-row items-center justify-between sm:justify-start gap-2 sm:gap-3 p-1.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md w-full sm:w-auto relative z-10 overflow-x-auto no-scrollbar">
+
+        {/* Блок рейтинга */}
+        <Link 
+            href={`/movie/${movie.id}/rate`} 
+            // shrink-0 важен для мобильных, чтобы текст/звезда не сплющивались
+            className={`shrink-0 px-5 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors 
+            ${isRated 
+                ? 'text-green-400 bg-green-500/10 border border-green-500/20 shadow-[0_0_15px_rgba(74,222,128,0.1)]' 
+                : 'text-slate-400 border border-transparent hover:text-white hover:bg-white/5'
+            }`}
+        >
+            {isRated ? (
+                <>
+                    <span className="text-lg">★</span>
+                    <span>Ваш рейтинг: {movieRating}</span>
+                </>
+            ) : (
+                <>
+                    <span className="text-lg">☆</span>
+                    <span className="opacity-70 text-xs uppercase tracking-wide">Оценить</span>
+                </>
+            )}
+        </Link>
+        
+        {/* Разделитель 1 (скрыт на мобильных) */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Кнопка Watchlist */}
+        <div className="scale-100 sm:scale-90">
+            <WatchlistButton mediaId={movie.id} mediaType="movie" isInWatchlist={isInWatchlist} />
+        </div>
+        
+        {/* Разделитель 2 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Дропдаун списков */}
+        <div className="scale-100 sm:scale-90">
+            <AddToListDropdown mediaId={movie.id} mediaType="movie" />
+        </div>
+
+        {/* Разделитель 3 */}
+        <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+        {/* Кнопка LogWatched */}
+        <div className="scale-100 sm:scale-90">
+            <LogWatchedButton 
+                mediaId={movie.id} 
+                mediaType="movie" 
+                title={movie.title} 
+            />
+        </div>
+        
     </div>
-    
-    {/* Разделитель 2 */}
-    <div className="hidden sm:block w-px h-6 bg-white/10" />
 
-    {/* Дропдаун списков */}
-    <div className="sm:scale-90">
-        <AddToListDropdown mediaId={movie.id} mediaType="movie" />
-    </div>
-
-    {/* Разделитель 3 */}
-    <div className="hidden sm:block w-px h-6 bg-white/10" />
-
-    {/* Кнопка LogWatched */}
-    <div className="sm:scale-90">
-        <LogWatchedButton 
-            mediaId={movie.id} 
-            mediaType="movie" 
-            title={movie.title} 
-        />
-    </div>
-    
 </div>
 
-                 </div>
               </div>
             </div>
           </div>
